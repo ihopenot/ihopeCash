@@ -1,0 +1,8 @@
+;【一、账本信息】
+option "title" "ihopeCash" ;账本名称
+option "operating_currency" "CNY" ;账本主货币
+
+;【二、账户设置】
+include "accounts.bean"
+
+include "data/2023/_.bean"

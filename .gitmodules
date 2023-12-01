@@ -1,0 +1,3 @@
+[submodule "china_bean_importers"]
+	path = china_bean_importers
+	url = git@github.com:jiegec/china_bean_importers.git
