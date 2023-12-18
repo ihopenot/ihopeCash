@@ -1,6 +1,7 @@
 .vscode
 
-archive
-data
+archive/*
+data/*
 
 accounts.bean
+!*/.gitkeep
