@@ -1,0 +1,45 @@
+;【二、账户设置】
+
+; Assets
+1999-01-01 open Assets:BoC:Card:XXX CNY ; 中行XXXX
+1999-01-01 open Assets:CCB:Card:XXX CNY ; 建行XXXX
+1999-01-01 open Assets:CMB:Card:XXX CNY ; 招行XXXX
+
+1999-01-01 open Assets:Alipay:Balance CNY ; 支付宝余额
+1999-01-01 open Assets:WeChat:Balance CNY ; 微信余额
+
+1999-01-01 open Assets:Financial CNY ; 微信余额
+
+1999-01-01 open Assets:ToSubmit CNY ; 待报销账户
+
+; Income
+1999-01-01 open Income:Salary CNY ; 工资收入
+1999-01-01 open Income:RedPacket CNY ; 红包
+1999-01-01 open Income:Interest CNY ; 利息
+1999-01-01 open Income:Bouns CNY ; 奖金
+
+1999-01-01 open Income:Unknown CNY ; 其他收入
+
+; Expenses
+1999-01-01 open Expenses:Tax CNY ; 交税
+
+1999-01-01 open Expenses:Eating CNY ; 饮食
+1999-01-01 open Expenses:Daily CNY ; 日用品
+
+1999-01-01 open Expenses:Utility CNY ; 水电工具
+
+1999-01-01 open Expenses:Network CNY ; 网络
+1999-01-01 open Expenses:Entertainment CNY ; 娱乐
+
+1999-01-01 open Expenses:JD CNY ; 京东
+
+1999-01-01 open Expenses:Transport:Others CNY ; 出行
+1999-01-01 open Expenses:Transport:Travel CNY ; 旅游
+
+1999-01-01 open Expenses:Education:Others CNY ; 教育
+
+1999-01-01 open Expenses:RedPacket CNY ; 红包
+1999-01-01 open Expenses:Unknown CNY ; 杂项
+
+; Equity
+1999-01-01 open Equity:OpenBalance ;用于账户初始化，支持任意货币
