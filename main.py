@@ -16,7 +16,7 @@ if __name__ == "__main__":
 
     print(f"creating directory of {year}-{month}")
     input("Press Enter to comfirm...")
-    os.mkdir(f"{datapath}/{year}/{month}")
+    os.makedirs(f"{datapath}/{year}/{month}")
     open(f"{datapath}/{year}/{month}/_.bean", "w").write(template)
     open(f"{datapath}/{year}/{month}/total.bean", "w")
     open(f"{datapath}/{year}/{month}/others.bean", "w")
