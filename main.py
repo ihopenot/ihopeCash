@@ -36,17 +36,19 @@ def decrypt_rawdata(remove_origin=True):
                 print(f'Failed to extract .csv files from {filename}: {e}')
         
         # 如果是.pdf文件，尝试解密
-        elif filename.endswith('.pdf') and filename.startswith('decrypted_') == False:
+        elif filename.endswith('.pdf'):
             try:
+                is_encrypted = False
                 with fitz.open(filepath) as doc:
                     if doc.is_encrypted:
+                        is_encrypted = True
                         doc.authenticate(file_basename)
                         if doc.is_encrypted:
                             raise Exception('Failed to decrypt')
                         decrypted_filepath = os.path.join(rawdatapath, f'decrypted_{filename}')
                         doc.save(decrypted_filepath)
                         print(f'Successfully decrypted {filename}')
-                if remove_origin:
+                if remove_origin and is_encrypted:
                     os.remove(filepath)
             except Exception as e:
                 print(f'Failed to decrypt {filename}: {e}')
