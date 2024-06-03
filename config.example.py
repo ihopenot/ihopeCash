@@ -13,7 +13,7 @@ from china_bean_importers import (
     ccb_debit_card,
 )
 
-from china_bean_importers.config import config  # your config file name
+from china_bean_importer_config import config  # your config file name
 
 CONFIG = [
     wechat.Importer(config),
