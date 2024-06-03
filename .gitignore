@@ -8,3 +8,4 @@ accounts.bean
 config.py
 !*/.gitkeep
 __pycache__
+china_bean_importer_config.py
