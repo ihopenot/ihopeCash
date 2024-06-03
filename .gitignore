@@ -7,3 +7,4 @@ rawdata/*
 accounts.bean
 config.py
 !*/.gitkeep
+__pycache__
