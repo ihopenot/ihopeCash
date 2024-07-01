@@ -105,7 +105,7 @@ if __name__ == "__main__":
     print("Input balance")
     for account in balance_accounts:
         balance = input(f"{account}: ")
-        others.write(f"{year}-{month}-01 balance {account} {balance} CNY\n")
+        others.write(f"{year}-{str(month+1).rjust(2, "0")}-01 balance {account} {balance} CNY\n")
     others.close()
 
     input("Import done, press Enter to archive...")
