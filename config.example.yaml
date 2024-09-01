@@ -1,0 +1,19 @@
+email:
+  imap:
+    host: imap.qq.com
+    port: 993
+    username: xxx@qq.com
+    password: ******
+    mailbox: INBOX
+  
+rawdata_path: rawdata
+
+passwords:
+  - "123456"
+  - "222222"
+
+balance_accounts:
+ - "Assets:BoC:Card:XXX"
+ - "Assets:CCB:Card:XXX"
+ - "Assets:Alipay:YueBao"
+ - "Assets:WeChat:Balance"

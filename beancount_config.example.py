@@ -27,5 +27,3 @@ CONFIG = [
 if sys.argv[-2] == "--":
     outfile = sys.argv[-1]
     sys.stdout = open(outfile, "w", encoding="utf8")
-
-balance_accounts = ["Assets:BoC:Card:XXX", "Assets:CCB:Card:XXX", "Assets:Alipay:YueBao", "Assets:WeChat:Balance"]

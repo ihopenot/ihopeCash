@@ -3,7 +3,7 @@ import shutil
 import zipfile
 import fitz
 import pandas as pd
-from config import balance_accounts
+from config import Config
 
 datapath = "data"
 rawdatapath = "rawdata"
