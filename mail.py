@@ -54,7 +54,7 @@ def decrypt_zip(data, password_itr, extract_suffix=".csv", zipfile_cls=pyzipper.
                         with zip_ref.open(zip_info, pwd=password.encode()) as source:
                             data = source.read()
                             print(f'Successfully extracted .csv files from {password.encode()}')
-                            return zip_info.filename, data
+                            return zip_info.filename.split("/")[1], data
                     except Exception as e:
                         pass
 
@@ -63,7 +63,7 @@ def decrypt_zip(data, password_itr, extract_suffix=".csv", zipfile_cls=pyzipper.
                         with zip_ref.open(zip_info, pwd=bytes(password)) as source:
                             data = source.read()
                             print(f'Successfully extracted .csv files from {bytes(password)}')
-                            return zip_info.filename, data
+                            return zip_info.filename.split("/")[1], data
                     except Exception as e:
                         pass
     return None
@@ -172,7 +172,8 @@ def DownloadFiles():
     server.logout()
 
 
-DownloadFiles()
+if __name__ == "__main__":
+    DownloadFiles()
 # decrypt_zip("rawdata/wechat.zip", itertools.product(b"1234567890", repeat=6))
 # WeChatEmailHandler().post_process("wechat.zip", open("rawdata/wechat.zip", "rb").read())
 # BoCDebitEmailHandler().post_process("KA020000001560066560001.pdf", open("rawdata/KA020000001560066560001.pdf", "rb").read())
