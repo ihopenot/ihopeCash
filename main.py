@@ -5,9 +5,9 @@ import fitz
 import pandas as pd
 from config import Config
 
-datapath = "data"
-rawdatapath = "rawdata"
-archivepath = "archive"
+datapath = Config["data_path"]
+rawdatapath = Config["rawdata_path"]
+archivepath = Config["archive_path"]
 
 template = """include "others.bean"
 include "total.bean"
