@@ -46,7 +46,12 @@ if __name__ == "__main__":
 
     open(f"{datapath}/{year}/{month}/_.bean", "w").write(template)
     open(f"{datapath}/{year}/{month}/total.bean", "w")
+    open(f"{datapath}/{year}/{month}/others.bean", "w")
     balance_file = open(f"{datapath}/balance.bean", "w")
+
+    if not os.path.exists(f"{datapath}/balance.bean"):
+        open(f"{datapath}/balance.bean", "w").close()
+    balance_file = open(f"{datapath}/balance.bean", "wa")
     
     newline = f'include "{month}/_.bean"\n'
     if open(f"{datapath}/{year}/_.bean").read().find(newline) == -1:
