@@ -22,7 +22,7 @@ if __name__ == "__main__":
     year = input("Year: ")
     month = input("Month: ")
 
-    os.system(f"bean-identify config.py {rawdatapath}")
+    os.system(f"bean-identify beancount_config.py {rawdatapath}")
 
     print(f"creating directory of {year}-{month}")
     input("Press Enter to comfirm...")
@@ -48,7 +48,7 @@ if __name__ == "__main__":
 
     input("Create done, press Enter to import...")
     os.system(
-        f"bean-extract config.py {rawdatapath} -- {datapath}/{year}/{month}/total.bean"
+        f"bean-extract beancount_config.py {rawdatapath} -- {datapath}/{year}/{month}/total.bean"
     )
 
     print("Input balance")
@@ -58,6 +58,6 @@ if __name__ == "__main__":
     others.close()
 
     input("Import done, press Enter to archive...")
-    os.system(f"bean-file -o {archivepath} config.py {rawdatapath}")
+    os.system(f"bean-file -o {archivepath} beancount_config.py {rawdatapath}")
 
     print("All done!")
