@@ -40,7 +40,7 @@ if __name__ == "__main__":
 
     open(f"{datapath}/{year}/{month}/_.bean", "w").write(template)
     open(f"{datapath}/{year}/{month}/total.bean", "w")
-    others = open(f"{datapath}/{year}/{month}/others.bean", "w")
+    balance_file = open(f"{datapath}/balance.bean", "w")
     
     newline = f'include "{month}/_.bean"\n'
     if open(f"{datapath}/{year}/_.bean").read().find(newline) == -1:
@@ -54,8 +54,8 @@ if __name__ == "__main__":
     print("Input balance")
     for account in Config["balance_accounts"]:
         balance = input(f"{account}: ")
-        others.write(f"{year}-{str(int(month)+1).rjust(2, '0')}-01 balance {account} {balance} CNY\n")
-    others.close()
+        balance_file.write(f"{year}-{str(int(month)+1).rjust(2, '0')}-01 balance {account} {balance} CNY\n")
+    balance_file.close()
 
     input("Import done, press Enter to archive...")
     os.system(f"bean-file -o {archivepath} beancount_config.py {rawdatapath}")
