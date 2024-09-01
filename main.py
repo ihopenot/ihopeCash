@@ -1,8 +1,7 @@
 import os
 import shutil
 from mail import DownloadFiles
-import fitz
-import pandas as pd
+import datetime
 from config import Config
 
 datapath = Config["data_path"]
@@ -19,8 +18,12 @@ if __name__ == "__main__":
     # decrypt_rawdata(rm_ori)
     input("decryption done, press Enter to continue...")
 
-    year = input("Year: ")
-    month = input("Month: ")
+    year = str(datetime.datetime.now().year)
+    month = str((datetime.datetime.now().month + 11) % 12)
+    opt = input(f"Create directory of {year}-{month}? (y/N):")
+    if opt.lower() != "y":
+        year = input("Year: ")
+        month = input("Month: ")
 
     os.system(f"bean-identify beancount_config.py {rawdatapath}")
 
@@ -35,6 +38,9 @@ if __name__ == "__main__":
             open(f"main.bean", "a").write(newline)
 
     if os.path.exists(f"{datapath}/{year}/{month}"):
+        opt = input("Directory already exists, remove it? (y/N):")
+        if opt.lower() != "y":
+            exit(0)
         shutil.rmtree(f"{datapath}/{year}/{month}")
     os.makedirs(f"{datapath}/{year}/{month}")
 
