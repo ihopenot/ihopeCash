@@ -5,7 +5,9 @@ data/*
 rawdata/*
 
 accounts.bean
-config.py
+beancount_config.py
+config.yaml
+
 !*/.gitkeep
 __pycache__
 china_bean_importer_config.py
