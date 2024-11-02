@@ -51,7 +51,7 @@ if __name__ == "__main__":
 
     if not os.path.exists(f"{datapath}/balance.bean"):
         open(f"{datapath}/balance.bean", "w").close()
-    balance_file = open(f"{datapath}/balance.bean", "wa")
+    balance_file = open(f"{datapath}/balance.bean", "a")
     
     newline = f'include "{month}/_.bean"\n'
     if open(f"{datapath}/{year}/_.bean").read().find(newline) == -1:

@@ -42,19 +42,26 @@ class BaseEmailHanlder:
         if self.is_match(msg):
             name, data = self.get_data(msg)
             name, data = self.post_process(name, data)
+            print(name)
             self.savebill(name, data)
 
 
 def decrypt_zip(data, password_itr, extract_suffix=".csv", zipfile_cls=pyzipper.ZipFile):
     with zipfile_cls(io.BytesIO(data)) as zip_ref:
         for zip_info in zip_ref.infolist():
+            if "/" in zip_info.filename:
+                ret_name = zip_info.filename.split("/")[1]
+            else:
+                ret_name = zip_info.filename
+
+            print(ret_name)
             if zip_info.filename.endswith(extract_suffix):
                 for password in Config["passwords"]:
                     try:
                         with zip_ref.open(zip_info, pwd=password.encode()) as source:
                             data = source.read()
                             print(f'Successfully extracted .csv files from {password.encode()}')
-                            return zip_info.filename.split("/")[1], data
+                            return ret_name, data
                     except Exception as e:
                         pass
 
@@ -63,7 +70,7 @@ def decrypt_zip(data, password_itr, extract_suffix=".csv", zipfile_cls=pyzipper.
                         with zip_ref.open(zip_info, pwd=bytes(password)) as source:
                             data = source.read()
                             print(f'Successfully extracted .csv files from {bytes(password)}')
-                            return zip_info.filename.split("/")[1], data
+                            return ret_name, data
                     except Exception as e:
                         pass
     return None
