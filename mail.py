@@ -77,7 +77,7 @@ def decrypt_zip(data, password_itr, extract_suffix=".csv", zipfile_cls=pyzipper.
 
 
 class WeChatEmailHandler(BaseEmailHanlder):
-    reg_download_url = re.compile(r'"(https://download.bill.weixin.qq.com/cgi-bin/download_bill.cgi\?.*?)"')
+    reg_download_url = re.compile(r'"(https://tenpay.wechatpay.cn/userroll/userbilldownload/downloadfilefromemail\?.*?)"')
     password_itr = itertools.product(b"1234567890", repeat=6)
 
     def is_match(self, msg):
@@ -92,9 +92,14 @@ class WeChatEmailHandler(BaseEmailHanlder):
                 if len(download_urls) > 0:
                     r = requests.get(download_urls[0])
                     return "wechat.zip", r.content
+        raise Exception("No download URL found in the email")
     
     def post_process(self, name: str, data: bytes) -> Tuple[str, bytes]:
-        return decrypt_zip(data, self.password_itr)
+        name, xlsfile = decrypt_zip(data, self.password_itr, ".xlsx", pyzipper.AESZipFile)
+        xls_df = pd.read_excel(io.BytesIO(xlsfile))
+        name = os.path.splitext(name)[0] + ".csv"
+        return name, xls_df.to_csv(None, index=False).encode()
+        # return decrypt_zip(data, self.password_itr)
 
 
 
@@ -173,8 +178,14 @@ def DownloadFiles():
 
         for handler in handlers:
             handler.process(msg)
-
-        server.store(mail, '+FLAGS', '\\Seen')
+        
+        try:
+            server.store(mail, '+FLAGS', '\\Seen')
+        except Exception:
+            server = imaplib.IMAP4_SSL(cfg["host"], cfg["port"])
+            server.login(cfg["username"], cfg["password"])
+            server.select(cfg["mailbox"])
+            server.store(mail, '+FLAGS', '\\Seen')
 
     server.logout()
 
