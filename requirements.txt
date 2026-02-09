@@ -1,3 +1,5 @@
 pyzipper
 pyyaml
 openpyxl
+pandas
+xlrd

@@ -3,8 +3,7 @@ import requests
 import imaplib
 import email
 from email.header import decode_header
-from typing import List, Tuple
-from config import Config
+from typing import List, Tuple, Dict, Any
 import pandas as pd
 import itertools
 
@@ -15,13 +14,16 @@ def decode_str(s):
     return val
 
 class BaseEmailHanlder:
+    def __init__(self, config: Dict[str, Any] = None):
+        self.config = config
+    
     def init(self, config):
-        pass
-
+        self.config = config
+    
     # we already filtered the email on the server side
     def is_match(self, msg):
         raise NotImplementedError
-
+    
     def get_data(self, msg) -> Tuple[str, bytes]:
         for part in msg.walk():
             file_name = part.get_filename()
@@ -29,12 +31,13 @@ class BaseEmailHanlder:
                 name = decode_str(file_name)
                 data = part.get_payload(decode=True)
                 return name, data
-
+    
     def post_process(self, name: str, data: bytes) -> Tuple[str, bytes]:
         return name, data
-
+    
     def savebill(self, name: str, data: bytes):
-        with open(os.path.join(Config["rawdata_path"], name), "wb") as f:
+        rawdata_path = self.config.get("rawdata_path", "rawdata") if self.config else "rawdata"
+        with open(os.path.join(rawdata_path, name), "wb") as f:
             f.write(data)
     
     # just download the attachment
@@ -46,7 +49,7 @@ class BaseEmailHanlder:
             self.savebill(name, data)
 
 
-def decrypt_zip(data, password_itr, extract_suffix=".csv", zipfile_cls=pyzipper.ZipFile):
+def decrypt_zip(data, password_itr, extract_suffix=".csv", zipfile_cls=pyzipper.ZipFile, config_passwords=None):
     with zipfile_cls(io.BytesIO(data)) as zip_ref:
         for zip_info in zip_ref.infolist():
             if "/" in zip_info.filename:
@@ -56,7 +59,9 @@ def decrypt_zip(data, password_itr, extract_suffix=".csv", zipfile_cls=pyzipper.
 
             print(ret_name)
             if zip_info.filename.endswith(extract_suffix):
-                for password in Config["passwords"]:
+                # 优先使用配置中的密码
+                passwords = config_passwords if config_passwords else []
+                for password in passwords:
                     try:
                         with zip_ref.open(zip_info, pwd=password.encode()) as source:
                             data = source.read()
@@ -95,7 +100,8 @@ class WeChatEmailHandler(BaseEmailHanlder):
         raise Exception("No download URL found in the email")
     
     def post_process(self, name: str, data: bytes) -> Tuple[str, bytes]:
-        name, xlsfile = decrypt_zip(data, self.password_itr, ".xlsx", pyzipper.AESZipFile)
+        config_passwords = self.config.get("passwords", []) if self.config else []
+        name, xlsfile = decrypt_zip(data, self.password_itr, ".xlsx", pyzipper.AESZipFile, config_passwords)
         xls_df = pd.read_excel(io.BytesIO(xlsfile))
         name = os.path.splitext(name)[0] + ".csv"
         return name, xls_df.to_csv(None, index=False).encode()
@@ -111,7 +117,8 @@ class AlipayEmailHandler(BaseEmailHanlder):
         return "支付宝交易流水明细" in subject
 
     def post_process(self, name: str, data: bytes) -> Tuple[str, bytes]:
-        return decrypt_zip(data, self.password_itr)
+        config_passwords = self.config.get("passwords", []) if self.config else []
+        return decrypt_zip(data, self.password_itr, config_passwords=config_passwords)
 
 
 class BoCDebitEmailHandler(BaseEmailHanlder):
@@ -125,7 +132,8 @@ class BoCDebitEmailHandler(BaseEmailHanlder):
         try:
             with fitz.open(stream=data, filetype="pdf") as doc:
                 if doc.is_encrypted:
-                    for password in Config["passwords"]:
+                    config_passwords = self.config.get("passwords", []) if self.config else []
+                    for password in config_passwords:
                         doc.authenticate(password)
                         if not doc.is_encrypted:
                             break
@@ -149,20 +157,35 @@ class CCBDebitEmailHandler(BaseEmailHanlder):
         return "中国建设银行个人活期账户交易明细" in subject
 
     def post_process(self, name: str, data: bytes) -> Tuple[str, bytes]:
-        name, xlsfile = decrypt_zip(data, self.password_itr, ".xls", pyzipper.AESZipFile)
+        config_passwords = self.config.get("passwords", []) if self.config else []
+        name, xlsfile = decrypt_zip(data, self.password_itr, ".xls", pyzipper.AESZipFile, config_passwords)
         xls_df = pd.read_excel(io.BytesIO(xlsfile))
         name = os.path.splitext(name)[0] + ".csv"
         return name, xls_df.to_csv(None, index=False).encode()
 
-handlers: List[BaseEmailHanlder] = [
-    WeChatEmailHandler(),
-    AlipayEmailHandler(),
-    BoCDebitEmailHandler(),
-    CCBDebitEmailHandler(),
-]
-
-def DownloadFiles():
-    cfg = Config["email"]["imap"]
+def DownloadFiles(config: Dict[str, Any] = None):
+    """下载邮件账单
+    
+    Args:
+        config: 配置字典,如果为 None 则尝试使用旧的 config.py
+    """
+    # 向后兼容:如果没有传入 config,尝试加载旧的配置
+    if config is None:
+        try:
+            from config import Config as OldConfig
+            config = OldConfig
+        except:
+            raise Exception("需要提供 config 参数或确保 config.py 存在")
+    
+    # 初始化所有 handler 使用新配置
+    handlers: List[BaseEmailHanlder] = [
+        WeChatEmailHandler(config),
+        AlipayEmailHandler(config),
+        BoCDebitEmailHandler(config),
+        CCBDebitEmailHandler(config),
+    ]
+    
+    cfg = config["email"]["imap"]
     server = imaplib.IMAP4_SSL(cfg["host"], cfg["port"])
     server.login(cfg["username"], cfg["password"])
 

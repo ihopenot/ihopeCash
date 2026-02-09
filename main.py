@@ -1,18 +1,9 @@
 import os
 import shutil
-from mail import DownloadFiles
 import datetime
-from config import Config
 import sys
 import argparse
-
-datapath = Config["data_path"]
-rawdatapath = Config["rawdata_path"]
-archivepath = Config["archive_path"]
-
-template = """include "others.bean"
-include "total.bean"
-"""
+from backend import Config, BillManager
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -20,22 +11,36 @@ if __name__ == "__main__":
     parser.add_argument("--append-folder", type=str, help="Append to specified month directory")
     parser.add_argument("--append-name", type=str, default="append", help="Append to specified month directory")
     args = parser.parse_args()
-
+    
+    # 初始化配置和管理器
+    config = Config()
+    manager = BillManager(config)
+    
+    # 追加模式
     if args.append:
         print("Append mode, skip downloading and decryption.")
-        open(f"{datapath}/{args.append_folder}/{args.append_name}.bean", "w")
-        open(f"{datapath}/{args.append_folder}/_.bean", "a").write(f"include \"{args.append_name}.bean\"\n")
-        os.system(
-            f"bean-extract beancount_config.py {rawdatapath} -- {datapath}/{args.append_folder}/{args.append_name}.bean"
-        )
-        os.system(f"bean-file -o {archivepath} beancount_config.py {rawdatapath}")
+        result = manager.append_to_month(args.append_folder, args.append_name)
+        
+        if result["success"]:
+            print("Append completed!")
+        else:
+            print(f"Append failed: {result['message']}")
+            sys.exit(1)
         sys.exit(0)
-
+    
+    # 正常导入模式
     input("Downloading bills, press Enter to continue...")
-    DownloadFiles()
-    # decrypt_rawdata(rm_ori)
+    try:
+        manager.download_bills()
+    except Exception as e:
+        print(f"Download failed: {e}")
+        import traceback
+        traceback.print_exception(e)
+        sys.exit(1)
+    
     input("decryption done, press Enter to continue...")
-
+    
+    # 年月选择
     year = datetime.datetime.now().year
     month = datetime.datetime.now().month
     if month == 1:
@@ -45,56 +50,68 @@ if __name__ == "__main__":
         month -= 1
     year = str(year)
     month = str(month)
-
+    
     opt = input(f"Create directory of {year}-{month}? (y/N):")
     if opt.lower() != "y":
         year = input("Year: ")
         month = input("Month: ")
-
-    os.system(f"bean-identify beancount_config.py {rawdatapath}")
-
+    
+    # 识别文件
+    try:
+        output = manager.bean_identify()
+        print(output)
+    except Exception as e:
+        print(f"Identify failed: {e}")
+        sys.exit(1)
+    
     print(f"creating directory of {year}-{month}")
     input("Press Enter to comfirm...")
-
-    if not os.path.exists(f"{datapath}/{year}"):
-        os.makedirs(f"{datapath}/{year}")
-        open(f"{datapath}/{year}/_.bean", "w").write("\n")
-        newline = f'include "{datapath}/{year}/_.bean"\n'
-        if open(f"main.bean", encoding="utf8").read().find(newline) == -1:
-            open(f"main.bean", "a", encoding="utf8").write(newline)
-
-    if os.path.exists(f"{datapath}/{year}/{month}"):
-        opt = input("Directory already exists, remove it? (y/N):")
-        if opt.lower() != "y":
-            exit(0)
-        shutil.rmtree(f"{datapath}/{year}/{month}")
-    os.makedirs(f"{datapath}/{year}/{month}")
-
-    open(f"{datapath}/{year}/{month}/_.bean", "w").write(template)
-    open(f"{datapath}/{year}/{month}/total.bean", "w")
-    open(f"{datapath}/{year}/{month}/others.bean", "w")
-    # balance_file = open(f"{datapath}/balance.bean", "w")
-
-    if not os.path.exists(f"{datapath}/balance.bean"):
-        open(f"{datapath}/balance.bean", "w").close()
-    balance_file = open(f"{datapath}/balance.bean", "a", encoding="utf-8")
     
-    newline = f'include "{month}/_.bean"\n'
-    if open(f"{datapath}/{year}/_.bean").read().find(newline) == -1:
-        open(f"{datapath}/{year}/_.bean", "a").write(newline)
-
+    # 创建目录
+    try:
+        # 检查是否已存在
+        if manager.month_directory_exists(year, month):
+            opt = input("Directory already exists, remove it? (y/N):")
+            force = opt.lower() == "y"
+            if not force:
+                sys.exit(0)
+        else:
+            force = False
+        
+        month_path = manager.create_month_directory(year, month, force)
+        print(f"Directory created: {month_path}")
+        
+    except Exception as e:
+        print(f"Create directory failed: {e}")
+        sys.exit(1)
+    
+    # 导入交易
     input("Create done, press Enter to import...")
-    os.system(
-        f"bean-extract beancount_config.py {rawdatapath} -- {datapath}/{year}/{month}/total.bean"
-    )
-
+    try:
+        manager.bean_extract(f"{month_path}/total.bean")
+    except Exception as e:
+        print(f"Import failed: {e}")
+        sys.exit(1)
+    
+    # 录入余额
     print("Input balance")
-    for account in Config["balance_accounts"]:
+    balances = {}
+    for account in config.balance_accounts:
         balance = input(f"{account}: ")
-        balance_file.write(f"{year if int(month) < 12 else str(int(year)+1)}-{str(1 if int(month) == 12 else (int(month)+1)).rjust(2, '0')}-01 balance {account} {balance} CNY\n")
-    balance_file.close()
-
+        balances[account] = balance
+    
+    try:
+        manager.record_balances(year, month, balances)
+    except Exception as e:
+        print(f"Record balance failed: {e}")
+        sys.exit(1)
+    
+    # 归档
     input("Import done, press Enter to archive...")
-    os.system(f"bean-file -o {archivepath} beancount_config.py {rawdatapath}")
-
+    try:
+        manager.bean_archive()
+    except Exception as e:
+        print(f"Archive failed: {e}")
+        sys.exit(1)
+    
     print("All done!")
