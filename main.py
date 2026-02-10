@@ -3,7 +3,8 @@ import shutil
 import datetime
 import sys
 import argparse
-from backend import Config, BillManager
+from config import Config
+from backend import BillManager
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

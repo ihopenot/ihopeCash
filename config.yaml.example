@@ -1,0 +1,127 @@
+# ============================================
+# IhopeCash 统一配置文件
+# ============================================
+
+# -------------------- 系统配置 --------------------
+system:
+  data_path: data
+  rawdata_path: rawdata
+  archive_path: archive
+  balance_accounts:
+    - Assets:Alipay:Balance
+    - Assets:WeChat:Balance
+
+# -------------------- 邮件配置 --------------------
+email:
+  imap:
+    host: imap.qq.com           # IMAP 服务器地址
+    port: 993                   # IMAP 端口
+    username: your@email.com    # 邮箱账号
+    password: your_password     # 邮箱密码或授权码
+    mailbox: Bills              # 邮箱文件夹（建议单独分类账单邮件）
+
+# -------------------- 密码配置 --------------------
+# PDF 和 ZIP 附件的解压密码
+passwords:
+  - "123456"
+  - "password123"
+
+pdf_passwords:
+  - "123456"
+
+# -------------------- Beancount 导入器配置 --------------------
+importers:
+  alipay:
+    account: Assets:Alipay:Balance
+    huabei_account: Liabilities:Alipay:HuaBei
+    douyin_monthly_payment_account: Liabilities:DouyinMonthlyPayment
+    yuebao_account: Assets:Alipay:YueBao
+    red_packet_income_account: Income:RedPacket
+    red_packet_expense_account: Expenses:RedPacket
+    category_mapping:
+      交通出行: Expenses:Transport:Others
+      餐饮美食: Expenses:Eating
+      教育培训: Expenses:Education:Others
+      日用百货: Expenses:Daily
+
+  wechat:
+    account: Assets:WeChat:Balance
+    lingqiantong_account: Assets:WeChat:LingQianTong
+    red_packet_income_account: Income:RedPacket
+    red_packet_expense_account: Expenses:RedPacket
+    family_card_expense_account: Expenses:WeChat:FamilyCard
+    group_payment_expense_account: Expenses:Unknown
+    group_payment_income_account: Income:Unknown
+    transfer_expense_account: Expenses:Unknown
+    transfer_income_account: Income:Unknown
+
+  thu_ecard:
+    account: Assets:Card:THU
+
+  hsbc_hk:
+    account_mapping:
+      One: Assets:Bank:HSBC
+      PULSE: Liabilities:CreditCards:HSBC:Pulse
+    use_cnh: false
+
+  card_narration_whitelist:
+    - 财付通(银联云闪付)
+  card_narration_blacklist:
+    - 支付宝
+    - 财付通
+    - 美团支付
+
+# -------------------- 账户映射 --------------------
+# 将银行卡号映射到 Beancount 账户
+card_accounts:
+  Assets:
+    BoC:Card:
+      - "XXXX"  # 替换为你的中国银行卡号后4位
+    CCB:Card:
+      - "XXXX"  # 替换为你的建设银行卡号后4位
+
+# -------------------- 账户匹配规则 --------------------
+unknown_expense_account: Expenses:Unknown
+unknown_income_account: Income:Unknown
+
+# -------------------- 交易详情映射规则 --------------------
+# 根据交易描述关键词自动分类到对应的费用账户
+detail_mappings:
+  - payee_keywords:
+      - Valve
+    narration_keywords:
+      - Steam Purchase
+    account: Expenses:Entertainment
+    tags: []
+    metadata:
+      platform: Steam
+
+  - payee_keywords:
+      - 京东
+    narration_keywords: []
+    account: Expenses:JD
+    tags: []
+    metadata:
+      platform: 京东
+
+  - payee_keywords: []
+    narration_keywords:
+      - 饿了么
+    account: Expenses:Eating
+    tags: []
+    metadata:
+      platform: 饿了么
+
+  - payee_keywords: []
+    narration_keywords:
+      - 结息
+    account: Income:Interest
+    tags: []
+    metadata: {}
+
+  - payee_keywords: []
+    narration_keywords:
+      - 健身
+    account: Expenses:Entertainment
+    tags: []
+    metadata: {}

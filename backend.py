@@ -1,110 +1,15 @@
 """
 Backend module for IhopeCash - 账单管理后端模块
 
-提供两个核心类:
-- Config: 配置管理
+提供核心类:
 - BillManager: 账单业务操作
 """
 
 import os
-import yaml
 import subprocess
 import shutil
 from typing import Dict, Any, Optional
-
-
-class Config:
-    """配置管理类"""
-    
-    def __init__(self, config_file: str = "config.yaml"):
-        """初始化配置管理器
-        
-        Args:
-            config_file: 配置文件路径,默认为 config.yaml
-        """
-        self.config_file = config_file
-        self._config: Dict[str, Any] = {}
-        self.load()
-    
-    def _get_default_config(self) -> Dict[str, Any]:
-        """返回默认配置字典
-        
-        Returns:
-            默认配置字典
-        """
-        return {
-            "data_path": "data",
-            "rawdata_path": "rawdata",
-            "archive_path": "archive",
-            "balance_accounts": []
-        }
-    
-    def load(self):
-        """加载配置文件,文件不存在时创建默认配置"""
-        if not os.path.exists(self.config_file):
-            # 配置文件不存在,创建默认配置
-            self._config = self._get_default_config()
-            self.save()
-        else:
-            # 加载现有配置文件
-            with open(self.config_file, 'r', encoding='utf-8') as f:
-                self._config = yaml.load(f, Loader=yaml.FullLoader)
-    
-    def save(self, file_path: Optional[str] = None):
-        """保存配置到 YAML 文件
-        
-        Args:
-            file_path: 保存路径,默认为初始化时的配置文件路径
-        """
-        target_path = file_path if file_path else self.config_file
-        with open(target_path, 'w', encoding='utf-8') as f:
-            yaml.dump(self._config, f, allow_unicode=True, default_flow_style=False)
-    
-    def __getitem__(self, key: str) -> Any:
-        """支持字典式访问: config["key"]
-        
-        Args:
-            key: 配置项键名
-            
-        Returns:
-            配置值
-            
-        Raises:
-            KeyError: 配置项不存在
-        """
-        return self._config[key]
-    
-    def get(self, key: str, default: Any = None) -> Any:
-        """安全访问配置项,支持默认值
-        
-        Args:
-            key: 配置项键名
-            default: 默认值
-            
-        Returns:
-            配置值或默认值
-        """
-        return self._config.get(key, default)
-    
-    @property
-    def data_path(self) -> str:
-        """数据目录路径"""
-        return self._config["data_path"]
-    
-    @property
-    def rawdata_path(self) -> str:
-        """原始数据目录路径"""
-        return self._config["rawdata_path"]
-    
-    @property
-    def archive_path(self) -> str:
-        """归档目录路径"""
-        return self._config["archive_path"]
-    
-    @property
-    def balance_accounts(self) -> list:
-        """余额账户列表"""
-        return self._config.get("balance_accounts", [])
+from config import Config
 
 
 class BillManager:
@@ -181,7 +86,7 @@ class BillManager:
         try:
             from mail import DownloadFiles
             # 传入配置字典
-            config_dict = self.config._config
+            config_dict = self.config.to_dict()
             DownloadFiles(config_dict)
         except Exception as e:
             raise Exception(f"下载账单失败: {str(e)}")

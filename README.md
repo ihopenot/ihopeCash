@@ -19,23 +19,39 @@ pip install -r requirements.txt
 ```
 
 ## config
-将beancount_config.example.py和config.example.yaml复制一份，改名为beancount_config.py和config.yaml, 并将其中一些敏感信息修改成你对应的信息
 
-imap是通过网络下载邮件附件，里面的信息填你自己的邮箱服务商提供的信息，默认的配置是qq邮箱
+将 `config.example.yaml` 复制为 `config.yaml`，并修改其中的配置信息：
 
-passwords是这些附件的解压密码，如果不填或者解压失败的话会爆破密码，可能会花费数分钟的时间
+```bash
+cp config.example.yaml config.yaml
+```
 
-为了避免影响其他邮件，建议使用邮箱的分类功能将账单邮件单独分在一个mailbox内
+### 配置说明
 
-导入脚本只会读取状态的为未读的邮件，并在处理后将其标记为已读，需要在邮箱里将需要处理邮件标为未读
+#### email - 邮箱配置
+通过 IMAP 自动下载邮件附件中的账单。默认配置为 QQ 邮箱，请修改为你的邮箱服务商信息：
+- `host`: IMAP 服务器地址
+- `port`: IMAP 端口（通常为 993）
+- `username`: 邮箱账号
+- `password`: 邮箱密码或授权码
+- `mailbox`: 邮箱文件夹（建议使用邮箱的分类功能，将账单邮件单独分类到一个文件夹）
 
-目前支持网络下载的账单：
+**注意**：导入脚本只会读取未读邮件，并在处理后标记为已读。需要处理的邮件需要在邮箱中标记为未读。
+
+**目前支持网络下载的账单**：
  - 中国银行借记卡账单
  - 建设银行借记卡账单
  - 微信账单
  - 支付宝账单
 
-balance_account是需要录入余额断言的账户，设置好之后导入脚本会主动让你输入余额
+#### passwords - 附件解压密码
+PDF 和 ZIP 附件的解压密码列表。如果不填或解压失败，程序会尝试爆破密码（可能需要数分钟）。
+
+#### rawdata_path / data_path / archive_path
+原始账单、处理后数据、归档文件的存放路径。
+
+#### balance_accounts - 余额断言账户
+需要录入余额断言的账户列表。设置后，导入脚本会提示你输入这些账户的余额。
 
 
 ## 导出数据
@@ -72,3 +88,6 @@ python main.py
 pip install fava
 fava main.bean
 ```
+
+## TODO
+[ ] 卡号不存在时无法识别rawdata文件
