@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - IhopeCash Web</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
+        <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">
+            🔒 IhopeCash Web 登录
+        </h1>
+        
+        <form id="loginForm" class="space-y-4">
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+                    密码
+                </label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="请输入密码"
+                    required
+                />
+            </div>
+            
+            <div id="errorMessage" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            </div>
+            
+            <button
+                type="submit"
+                class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+            >
+                登录
+            </button>
+        </form>
+    </div>
+
+    <script>
+        const loginForm = document.getElementById('loginForm');
+        const passwordInput = document.getElementById('password');
+        const errorMessage = document.getElementById('errorMessage');
+
+        // 处理登录表单提交
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // 隐藏错误消息
+            errorMessage.classList.add('hidden');
+            
+            // 获取密码
+            const password = passwordInput.value;
+            
+            try {
+                // 发送登录请求
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    // 登录成功 - 保存 token 到 localStorage
+                    localStorage.setItem('auth_token', data.token);
+                    localStorage.setItem('token_expire_at', data.expire_at);
+                    
+                    // 重定向到主页面
+                    window.location.href = '/';
+                } else {
+                    // 登录失败 - 显示错误消息
+                    showError(data.detail || '登录失败');
+                }
+            } catch (error) {
+                showError('网络错误，请检查连接');
+                console.error('Login error:', error);
+            }
+        });
+
+        // 显示错误消息
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+        }
+
+        // 页面加载时检查是否已登录
+        window.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('auth_token');
+            if (token) {
+                // 已有 token，尝试跳转到主页
+                window.location.href = '/';
+            }
+        });
+    </script>
+</body>
+</html>

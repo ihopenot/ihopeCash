@@ -12,3 +12,8 @@ config.yaml
 !*/.gitkeep
 __pycache__
 china_bean_importer_config.py
+
+# Web 相关
+web/tailwindcss*
+web/__pycache__
+*.pyc

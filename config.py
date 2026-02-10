@@ -117,7 +117,14 @@ class Config:
             "card_accounts": {},
             "unknown_expense_account": "Expenses:Unknown",
             "unknown_income_account": "Income:Unknown",
-            "detail_mappings": []
+            "detail_mappings": [],
+            "web": {
+                "host": "0.0.0.0",
+                "port": 8000,
+                "password": "change_this_password",
+                "jwt_secret": "change_this_secret_key",
+                "token_expire_days": 7
+            }
         }
     
     def _deep_merge(self, target: dict, source: dict):
@@ -228,6 +235,33 @@ class Config:
         """余额账户列表"""
         return self._config.get("system", {}).get("balance_accounts", [])
     
+    # ==================== Web 配置属性 ====================
+    
+    @property
+    def web_host(self) -> str:
+        """Web 服务监听地址"""
+        return self._config.get("web", {}).get("host", "0.0.0.0")
+    
+    @property
+    def web_port(self) -> int:
+        """Web 服务端口"""
+        return self._config.get("web", {}).get("port", 8000)
+    
+    @property
+    def web_password(self) -> str:
+        """Web 界面密码"""
+        return self._config.get("web", {}).get("password", "change_this_password")
+    
+    @property
+    def jwt_secret(self) -> str:
+        """JWT 签名密钥"""
+        return self._config.get("web", {}).get("jwt_secret", "change_this_secret_key")
+    
+    @property
+    def token_expire_days(self) -> int:
+        """Token 有效期（天）"""
+        return self._config.get("web", {}).get("token_expire_days", 7)
+    
     # ==================== 特殊转换方法 ====================
     
     def get_detail_mappings(self) -> List[Any]:
@@ -291,6 +325,24 @@ class Config:
         passwords.update(self._config.get("passwords", []))
         passwords.update(self._config.get("pdf_passwords", []))
         return list(passwords)
+    
+    def validate_web_config(self) -> List[str]:
+        """验证 Web 配置，返回警告列表
+        
+        Returns:
+            警告信息列表
+        """
+        warnings = []
+        
+        # 检查密码是否为默认值
+        if self.web_password == "change_this_password":
+            warnings.append("警告: 请修改 config.yaml 中的 web.password")
+        
+        # 检查 JWT 密钥是否为默认值
+        if self.jwt_secret == "change_this_secret_key":
+            warnings.append("警告: 请修改 config.yaml 中的 web.jwt_secret")
+        
+        return warnings
     
     # ==================== 调试与信息 ====================
     

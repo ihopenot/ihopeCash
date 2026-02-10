@@ -8,8 +8,11 @@ Backend module for IhopeCash - 账单管理后端模块
 import os
 import subprocess
 import shutil
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Callable
 from config import Config
+
+# 进度回调类型定义
+ProgressCallback = Callable[[Dict[str, Any]], None]
 
 
 class BillManager:
@@ -246,6 +249,117 @@ include "total.bean"
                 "data": None
             }
     
+    def import_month_with_progress(
+        self, 
+        year: str, 
+        month: str, 
+        balances: Dict[str, str],
+        mode: str,  # "normal", "force", "append"
+        progress_callback: Optional[ProgressCallback] = None
+    ) -> Dict:
+        """带进度回调的完整导入流程
+        
+        Args:
+            year: 年份
+            month: 月份
+            balances: 账户余额字典
+            mode: 导入模式 ("normal", "force", "append")
+            progress_callback: 进度回调函数
+            
+        Returns:
+            {"success": bool, "message": str, "data": dict}
+        """
+        def send_progress(step: int, step_name: str, status: str, message: str, details: Optional[Dict] = None):
+            """发送进度消息"""
+            if progress_callback:
+                progress_callback({
+                    "step": step,
+                    "total": 6,
+                    "step_name": step_name,
+                    "status": status,
+                    "message": message,
+                    "details": details or {}
+                })
+        
+        try:
+            # 1. 下载邮件账单
+            send_progress(1, "download", "running", "正在下载邮件账单...")
+            self.download_bills()
+            # 统计下载的文件数
+            import glob
+            files_count = len(glob.glob(f"{self.rawdata_path}/*"))
+            send_progress(1, "download", "success", f"邮件下载完成，共 {files_count} 个文件", {"files_count": files_count})
+            
+            # 2. 识别文件类型
+            send_progress(2, "identify", "running", "正在识别文件类型...")
+            identify_output = self.bean_identify()
+            send_progress(2, "identify", "success", "文件识别完成", {"output": identify_output})
+            
+            # 3. 创建目录或追加文件
+            if mode == "append":
+                send_progress(3, "append_file", "running", "正在创建追加文件...")
+                # 检查目录是否存在
+                if not self.month_directory_exists(year, month):
+                    raise Exception(f"目录 {self.data_path}/{year}/{month} 不存在，无法追加")
+                
+                # 生成时间戳文件名
+                from datetime import datetime
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                append_name = f"append_{timestamp}"
+                append_file = f"{self.data_path}/{year}/{month}/{append_name}.bean"
+                open(append_file, "w").close()
+                
+                # 更新 _.bean
+                folder_bean = f"{self.data_path}/{year}/{month}/_.bean"
+                include_line = f'include "{append_name}.bean"\n'
+                with open(folder_bean, "a") as f:
+                    f.write(include_line)
+                
+                month_path = f"{self.data_path}/{year}/{month}"
+                extract_target = append_file
+                send_progress(3, "append_file", "success", f"追加文件创建完成: {append_name}.bean")
+            else:
+                send_progress(3, "create_dir", "running", "正在创建目录结构...")
+                force_overwrite = (mode == "force")
+                month_path = self.create_month_directory(year, month, force_overwrite)
+                extract_target = f"{month_path}/total.bean"
+                send_progress(3, "create_dir", "success", f"目录创建完成: {month_path}")
+            
+            # 4. 提取交易记录
+            send_progress(4, "extract", "running", "正在提取交易记录...")
+            self.bean_extract(extract_target)
+            send_progress(4, "extract", "success", "交易提取完成")
+            
+            # 5. 记录余额断言
+            send_progress(5, "balance", "running", "正在记录余额断言...")
+            self.record_balances(year, month, balances)
+            send_progress(5, "balance", "success", f"余额记录完成，共 {len(balances)} 个账户")
+            
+            # 6. 归档原始文件
+            send_progress(6, "archive", "running", "正在归档原始文件...")
+            self.bean_archive()
+            send_progress(6, "archive", "success", "归档完成")
+            
+            return {
+                "success": True,
+                "message": "导入完成",
+                "data": {
+                    "year": year,
+                    "month": month,
+                    "path": month_path,
+                    "mode": mode
+                }
+            }
+            
+        except Exception as e:
+            # 发送错误消息
+            send_progress(0, "error", "error", str(e))
+            return {
+                "success": False,
+                "message": str(e),
+                "data": None
+            }
+    
     def append_to_month(self, folder: str, name: str = "append") -> Dict:
         """追加模式 - 向已存在月份追加交易
         
@@ -282,3 +396,31 @@ include "total.bean"
                 "message": str(e),
                 "data": None
             }
+    
+    def import_append_mode(
+        self,
+        year: str,
+        month: str,
+        balances: Dict[str, str],
+        progress_callback: Optional[ProgressCallback] = None
+    ) -> Dict:
+        """追加模式 - 完整流程包括下载
+        
+        这是 import_month_with_progress(mode="append") 的便捷封装
+        
+        Args:
+            year: 年份
+            month: 月份
+            balances: 账户余额字典
+            progress_callback: 进度回调函数
+            
+        Returns:
+            {"success": bool, "message": str, "data": dict}
+        """
+        return self.import_month_with_progress(
+            year=year,
+            month=month,
+            balances=balances,
+            mode="append",
+            progress_callback=progress_callback
+        )

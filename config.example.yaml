@@ -19,3 +19,10 @@ balance_accounts:
  - "Assets:CCB:Card:XXX"
  - "Assets:Alipay:YueBao"
  - "Assets:WeChat:Balance"
+
+web:
+  host: "0.0.0.0"
+  port: 8000
+  password: "change_this_password"
+  jwt_secret: "change_this_secret_key"
+  token_expire_days: 7

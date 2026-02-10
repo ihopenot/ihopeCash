@@ -73,7 +73,45 @@ PDF 和 ZIP 附件的解压密码列表。如果不填或解压失败，程序�
 建行导出的zip是aes加密的，需要手动解压出来xls文件
 
 ## 导入数据
+
+### 方式1: 命令行工具（传统方式）
+
 配置好了imap之后导入脚本会自动从邮箱拉取账单
+
+```bash
+python main.py
+```
+
+### 方式2: Web 界面（推荐）
+
+提供友好的浏览器界面，无需手动确认每个步骤，支持实时进度显示。
+
+**快速开始**:
+
+1. 安装 Web 依赖:
+```bash
+pip install -r web/requirements.txt
+```
+
+2. 确保 `config.yaml` 包含 Web 配置:
+```yaml
+web:
+  host: "0.0.0.0"
+  port: 8000
+  password: "your_secure_password"      # ⚠️ 必须修改
+  jwt_secret: "your_random_secret_key"  # ⚠️ 必须修改
+  token_expire_days: 7
+```
+
+3. 启动 Web 服务:
+```bash
+cd web
+python app.py
+```
+
+4. 访问 `http://localhost:8000`，使用配置的密码登录
+
+**详细说明**: 查看 [web/README.md](web/README.md)
 
 手动导入的话需要将对应的附件解密解压缩，并转换成对应importer支持的格式
 

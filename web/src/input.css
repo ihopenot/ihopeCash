@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 自定义组件类 */
+@layer components {
+    .btn-primary {
+        @apply bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200;
+    }
+    
+    .log-entry {
+        @apply py-1 px-2 text-sm;
+    }
+    
+    .form-input {
+        @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+    }
+}

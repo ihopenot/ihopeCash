@@ -125,3 +125,11 @@ detail_mappings:
     account: Expenses:Entertainment
     tags: []
     metadata: {}
+
+# -------------------- Web 界面配置 --------------------
+web:
+  host: "0.0.0.0"                      # Web 服务监听地址，0.0.0.0 允许外网访问
+  port: 8000                            # Web 服务端口
+  password: "change_this_password"      # Web 界面登录密码 ⚠️ 必须修改
+  jwt_secret: "change_this_secret_key"  # JWT 签名密钥 ⚠️ 必须修改为随机字符串
+  token_expire_days: 7                  # JWT Token 有效期（天）
