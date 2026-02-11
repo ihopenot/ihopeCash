@@ -1,0 +1,16 @@
+services:
+  ihopecash:
+    build: .
+    container_name: ihopecash
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - ./data:/app/data
+      - ./rawdata:/app/rawdata
+      - ./archive:/app/archive
+      - ./main.bean:/app/main.bean
+      - ./accounts.bean:/app/accounts.bean
+      - ./certs:/app/certs

@@ -4,6 +4,7 @@
 archive/*
 data/*
 rawdata/*
+certs/
 
 accounts.bean
 beancount_config.py
