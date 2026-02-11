@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Dict
+from typing import Dict, List, Any
 import datetime
 import sys
 import os
@@ -58,6 +58,13 @@ class ImportRequest(BaseModel):
     month: str
     mode: str  # "normal", "force", "append"
     balances: Dict[str, str]
+    passwords: List[str] = []
+
+
+class ChangePasswordRequest(BaseModel):
+    """修改密码请求"""
+    current_password: str
+    new_password: str
 
 
 # ==================== API 端点 ====================
@@ -146,7 +153,8 @@ async def start_import(
         year=request.year,
         month=request.month,
         balances=request.balances,
-        mode=request.mode
+        mode=request.mode,
+        passwords=request.passwords
     )
     
     return {
@@ -154,6 +162,76 @@ async def start_import(
         "task_id": task_id,
         "message": "导入任务已启动"
     }
+
+
+@app.get("/config")
+async def config_page():
+    """配置页面"""
+    return FileResponse("web/static/config.html")
+
+
+@app.get("/api/config/full")
+async def get_full_config(user: dict = Depends(get_current_user)):
+    """获取完整可编辑配置（脱敏后）
+    
+    需要认证
+    
+    Returns:
+        脱敏后的可编辑配置
+    """
+    return config.get_editable_config()
+
+
+@app.put("/api/config/full")
+async def update_full_config(
+    data: Dict[str, Any],
+    user: dict = Depends(get_current_user)
+):
+    """保存配置
+    
+    需要认证。后端强制跳过受保护字段。
+    
+    Args:
+        data: 前端提交的配置数据
+        
+    Returns:
+        操作结果
+    """
+    try:
+        config.update_from_web(data)
+        return {"success": True, "message": "配置已保存"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"保存配置失败: {str(e)}")
+
+
+@app.post("/api/config/change-password")
+async def change_password(
+    request: ChangePasswordRequest,
+    user: dict = Depends(get_current_user)
+):
+    """修改登录密码
+    
+    需要认证，需验证当前密码。
+    
+    Args:
+        request: 修改密码请求
+        
+    Returns:
+        操作结果
+    """
+    # 验证当前密码
+    if not verify_password(request.current_password, config):
+        raise HTTPException(status_code=400, detail="当前密码错误")
+    
+    # 验证新密码非空
+    if not request.new_password.strip():
+        raise HTTPException(status_code=400, detail="新密码不能为空")
+    
+    try:
+        config.update_web_password(request.new_password)
+        return {"success": True, "message": "密码已修改"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"修改密码失败: {str(e)}")
 
 
 @app.websocket("/ws/progress")

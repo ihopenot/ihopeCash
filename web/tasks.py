@@ -4,7 +4,7 @@
 
 import asyncio
 import uuid
-from typing import Dict, Any, Set
+from typing import Dict, Any, List, Set
 from fastapi import WebSocket
 import sys
 import os
@@ -30,7 +30,8 @@ class TaskManager:
         year: str,
         month: str,
         balances: Dict[str, str],
-        mode: str
+        mode: str,
+        passwords: List[str] = None
     ) -> str:
         """创建新的导入任务
         
@@ -39,6 +40,7 @@ class TaskManager:
             month: 月份
             balances: 账户余额字典
             mode: 导入模式 (normal/force/append)
+            passwords: 附件解压密码列表
             
         Returns:
             task_id
@@ -59,7 +61,7 @@ class TaskManager:
         
         # 创建异步任务
         task = asyncio.create_task(
-            self._execute_import(task_id, year, month, balances, mode)
+            self._execute_import(task_id, year, month, balances, mode, passwords or [])
         )
         self.active_tasks[task_id] = task
         
@@ -71,7 +73,8 @@ class TaskManager:
         year: str,
         month: str,
         balances: Dict[str, str],
-        mode: str
+        mode: str,
+        passwords: List[str] = None
     ):
         """执行导入任务（在后台运行）
         
@@ -81,6 +84,7 @@ class TaskManager:
             month: 月份
             balances: 账户余额字典
             mode: 导入模式
+            passwords: 附件解压密码列表
         """
         try:
             # 更新状态为运行中
@@ -112,6 +116,7 @@ class TaskManager:
                 month=month,
                 balances=balances,
                 mode=mode,
+                passwords=passwords or [],
                 progress_callback=sync_progress_callback
             )
             

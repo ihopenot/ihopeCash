@@ -4,120 +4,138 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IhopeCash Web 导入工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="bg-gray-100 min-h-screen">
-    <div class="container mx-auto px-4 py-8 max-w-4xl">
-        <!-- 头部 -->
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-800">
-                📊 IhopeCash Web 导入工具
-            </h1>
-            <button
-                id="logoutBtn"
-                class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-            >
-                退出登录
-            </button>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 顶部导航栏 -->
+    <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6">
+            <div class="flex justify-between items-center h-14">
+                <div class="flex items-center space-x-8">
+                    <a href="/" class="text-lg font-bold text-gray-900 tracking-tight">IhopeCash</a>
+                    <div class="flex space-x-1">
+                        <a href="/" class="px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-50 text-blue-700">导入</a>
+                        <a href="/config" class="px-3 py-1.5 text-sm font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition">配置</a>
+                    </div>
+                </div>
+                <button
+                    id="logoutBtn"
+                    class="text-sm text-gray-500 hover:text-gray-700 transition"
+                >
+                    退出登录
+                </button>
+            </div>
         </div>
+    </nav>
+
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-5">
 
         <!-- 账单信息表单 -->
-        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">📅 账单信息</h2>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <h2 class="text-base font-semibold text-gray-800 mb-4">账单信息</h2>
             
             <form id="importForm" class="space-y-4">
                 <!-- 年月选择 -->
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label for="year" class="block text-sm font-medium text-gray-700 mb-2">
-                            年份
-                        </label>
+                        <label for="year" class="block text-sm font-medium text-gray-600 mb-1">年份</label>
                         <select
                             id="year"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                            <!-- 动态生成年份选项 -->
-                        </select>
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                        ></select>
                     </div>
                     <div>
-                        <label for="month" class="block text-sm font-medium text-gray-700 mb-2">
-                            月份
-                        </label>
+                        <label for="month" class="block text-sm font-medium text-gray-600 mb-1">月份</label>
                         <select
                             id="month"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                            <!-- 动态生成月份选项 -->
-                        </select>
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                        ></select>
                     </div>
                 </div>
 
                 <!-- 导入模式 -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        导入模式
-                    </label>
-                    <div class="space-y-2">
-                        <label class="flex items-center">
-                            <input type="radio" name="mode" value="normal" checked class="mr-2">
-                            <span class="text-sm">通常模式</span>
+                    <label class="block text-sm font-medium text-gray-600 mb-2">导入模式</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <label class="flex items-center justify-center px-3 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 has-[:checked]:text-blue-700">
+                            <input type="radio" name="mode" value="normal" checked class="sr-only">
+                            <span class="text-sm font-medium">通常模式</span>
                         </label>
-                        <label class="flex items-center">
-                            <input type="radio" name="mode" value="force" class="mr-2">
-                            <span class="text-sm">强制覆盖</span>
+                        <label class="flex items-center justify-center px-3 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 has-[:checked]:text-blue-700">
+                            <input type="radio" name="mode" value="force" class="sr-only">
+                            <span class="text-sm font-medium">强制覆盖</span>
                         </label>
-                        <label class="flex items-center">
-                            <input type="radio" name="mode" value="append" class="mr-2">
-                            <span class="text-sm">追加模式</span>
+                        <label class="flex items-center justify-center px-3 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 has-[:checked]:text-blue-700">
+                            <input type="radio" name="mode" value="append" class="sr-only">
+                            <span class="text-sm font-medium">追加模式</span>
                         </label>
                     </div>
-                    <div class="mt-2 text-xs text-gray-600 space-y-1">
-                        <p>ℹ️ <strong>通常模式</strong>: 目录已存在时报错</p>
-                        <p>ℹ️ <strong>强制覆盖</strong>: 删除已有目录并重新创建</p>
-                        <p>ℹ️ <strong>追加模式</strong>: 向已有月份添加新交易</p>
+                    <div id="modeDescription" class="mt-2 text-xs text-gray-500">
+                        目录已存在时报错
                     </div>
                 </div>
             </form>
         </div>
 
+        <!-- 附件密码 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-base font-semibold text-gray-800">附件密码</h2>
+                <button
+                    id="addPasswordBtn"
+                    type="button"
+                    class="text-sm text-blue-600 hover:text-blue-700 font-medium transition"
+                >
+                    + 添加密码
+                </button>
+            </div>
+            <p class="text-xs text-gray-400 mb-3">PDF/ZIP 附件的解压密码，留空表示无需密码</p>
+            <div id="passwordInputs" class="space-y-2">
+                <!-- 动态生成密码输入框 -->
+            </div>
+            <div id="noPasswordHint" class="text-sm text-gray-400 text-center py-3">
+                暂无密码，点击上方"添加密码"按钮添加
+            </div>
+        </div>
+
         <!-- 账户余额表单 -->
-        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">💰 账户余额</h2>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <h2 class="text-base font-semibold text-gray-800 mb-4">账户余额</h2>
             <div id="balanceInputs" class="space-y-3">
                 <!-- 动态生成余额输入框 -->
             </div>
         </div>
 
         <!-- 执行日志 -->
-        <div id="progressSection" class="bg-white rounded-lg shadow-lg p-6 mb-6 hidden">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">📋 执行日志</h2>
+        <div id="progressSection" class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hidden">
+            <h2 class="text-base font-semibold text-gray-800 mb-3">执行日志</h2>
             <div
                 id="logArea"
-                class="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto font-mono text-sm"
+                class="bg-gray-50 rounded-lg p-3 max-h-80 overflow-y-auto font-mono text-sm space-y-0.5"
             >
-                <!-- 动态添加日志条目 -->
             </div>
         </div>
 
         <!-- 按钮组 -->
-        <div class="flex gap-4">
+        <div class="flex gap-3">
             <button
                 id="startBtn"
-                class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                class="flex-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-2.5 px-6 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
-                🚀 开始导入
+                开始导入
             </button>
             <button
                 id="resetBtn"
-                class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 px-6 rounded-xl transition-all duration-200"
             >
-                🔄 重置
+                重置
             </button>
         </div>
     </div>
 
     <script>
-        // 全局变量
+        // ==================== 全局变量 ====================
         let config = null;
         let ws = null;
         let currentTaskId = null;
@@ -127,13 +145,23 @@
         const yearSelect = document.getElementById('year');
         const monthSelect = document.getElementById('month');
         const balanceInputs = document.getElementById('balanceInputs');
+        const passwordInputs = document.getElementById('passwordInputs');
+        const noPasswordHint = document.getElementById('noPasswordHint');
+        const addPasswordBtn = document.getElementById('addPasswordBtn');
         const progressSection = document.getElementById('progressSection');
         const logArea = document.getElementById('logArea');
         const startBtn = document.getElementById('startBtn');
         const resetBtn = document.getElementById('resetBtn');
         const logoutBtn = document.getElementById('logoutBtn');
+        const modeDescription = document.getElementById('modeDescription');
 
-        // ==================== 认证检查 ====================
+        const modeDescriptions = {
+            normal: '目录已存在时报错',
+            force: '删除已有目录并重新创建',
+            append: '向已有月份添加新交易'
+        };
+
+        // ==================== 认证 ====================
 
         function checkAuth() {
             const token = localStorage.getItem('auth_token');
@@ -158,26 +186,20 @@
             if (!checkAuth()) return;
 
             try {
-                // 获取配置
                 const response = await fetch('/api/config', {
                     headers: getAuthHeaders()
                 });
 
                 if (response.status === 401) {
-                    // Token 无效或过期
                     localStorage.removeItem('auth_token');
                     window.location.href = '/login';
                     return;
                 }
 
                 config = await response.json();
-
-                // 初始化年月选择器
                 initYearMonth();
-
-                // 初始化余额输入框
                 initBalanceInputs();
-
+                initModeRadios();
             } catch (error) {
                 console.error('Init error:', error);
                 alert('加载配置失败');
@@ -185,7 +207,6 @@
         }
 
         function initYearMonth() {
-            // 生成年份选项（前后5年）
             const currentYear = new Date().getFullYear();
             for (let y = currentYear - 5; y <= currentYear + 5; y++) {
                 const option = document.createElement('option');
@@ -195,7 +216,6 @@
                 yearSelect.appendChild(option);
             }
 
-            // 生成月份选项
             for (let m = 1; m <= 12; m++) {
                 const option = document.createElement('option');
                 option.value = m;
@@ -207,33 +227,81 @@
 
         function initBalanceInputs() {
             balanceInputs.innerHTML = '';
-
             config.balance_accounts.forEach(account => {
                 const div = document.createElement('div');
-                div.className = 'flex items-center gap-2';
+                div.className = 'flex items-center gap-3';
                 div.innerHTML = `
-                    <label class="w-1/2 text-sm text-gray-700">${account}</label>
-                    <input
-                        type="text"
-                        name="balance_${account}"
-                        data-account="${account}"
-                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="输入余额"
-                        required
-                    />
-                    <span class="text-sm text-gray-500">CNY</span>
+                    <label class="w-1/2 text-sm text-gray-600 truncate" title="${account}">${account}</label>
+                    <div class="flex-1 flex items-center gap-2">
+                        <input
+                            type="text"
+                            data-account="${account}"
+                            class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                            placeholder="输入余额"
+                            required
+                        />
+                        <span class="text-xs text-gray-400 w-8">CNY</span>
+                    </div>
                 `;
                 balanceInputs.appendChild(div);
             });
         }
 
+        function initModeRadios() {
+            document.querySelectorAll('input[name="mode"]').forEach(radio => {
+                radio.addEventListener('change', () => {
+                    modeDescription.textContent = modeDescriptions[radio.value] || '';
+                });
+            });
+        }
+
+        // ==================== Passwords 动态列表 ====================
+
+        addPasswordBtn.addEventListener('click', () => {
+            addPasswordInput();
+        });
+
+        function addPasswordInput(value = '') {
+            const div = document.createElement('div');
+            div.className = 'flex items-center gap-2';
+            div.innerHTML = `
+                <input
+                    type="password"
+                    class="password-field flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                    placeholder="输入密码"
+                    value="${value}"
+                />
+                <button type="button" class="remove-password-btn text-gray-400 hover:text-red-500 transition p-1" title="删除">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            `;
+            passwordInputs.appendChild(div);
+            noPasswordHint.classList.add('hidden');
+
+            div.querySelector('.remove-password-btn').addEventListener('click', () => {
+                div.remove();
+                if (passwordInputs.children.length === 0) {
+                    noPasswordHint.classList.remove('hidden');
+                }
+            });
+        }
+
+        function getPasswords() {
+            const passwords = [];
+            passwordInputs.querySelectorAll('.password-field').forEach(input => {
+                const val = input.value.trim();
+                if (val) passwords.push(val);
+            });
+            return passwords;
+        }
+
         // ==================== 表单提交 ====================
 
         startBtn.addEventListener('click', async () => {
-            // 验证表单
             const year = yearSelect.value;
             const month = monthSelect.value;
             const mode = document.querySelector('input[name="mode"]:checked').value;
+            const passwords = getPasswords();
 
             // 收集余额
             const balances = {};
@@ -246,13 +314,16 @@
 
                 if (!value) {
                     isValid = false;
-                    input.classList.add('border-red-500');
+                    input.classList.add('border-red-400');
+                    input.classList.remove('border-gray-300');
                 } else if (isNaN(parseFloat(value))) {
                     isValid = false;
-                    input.classList.add('border-red-500');
+                    input.classList.add('border-red-400');
+                    input.classList.remove('border-gray-300');
                 } else {
                     balances[account] = value;
-                    input.classList.remove('border-red-500');
+                    input.classList.remove('border-red-400');
+                    input.classList.add('border-gray-300');
                 }
             });
 
@@ -261,19 +332,16 @@
                 return;
             }
 
-            // 禁用表单
             disableForm();
-
-            // 显示进度区域
             progressSection.classList.remove('hidden');
-            logArea.innerHTML = '<div class="log-entry">⏳ 准备开始...</div>';
+            logArea.innerHTML = '';
+            addLog('准备开始...', 'running');
 
             try {
-                // 发送导入请求
                 const response = await fetch('/api/import', {
                     method: 'POST',
                     headers: getAuthHeaders(),
-                    body: JSON.stringify({ year, month, mode, balances })
+                    body: JSON.stringify({ year, month, mode, balances, passwords })
                 });
 
                 if (response.status === 401) {
@@ -286,18 +354,16 @@
 
                 if (data.success) {
                     currentTaskId = data.task_id;
-                    addLog('✓ 任务已创建，开始连接...');
-
-                    // 建立 WebSocket 连接
+                    addLog('任务已创建，正在连接...', 'success');
                     connectWebSocket(currentTaskId);
                 } else {
-                    addLog('❌ 启动任务失败: ' + data.message);
+                    addLog('启动任务失败: ' + data.message, 'error');
                     enableForm();
                 }
 
             } catch (error) {
                 console.error('Import error:', error);
-                addLog('❌ 网络错误: ' + error.message);
+                addLog('网络错误: ' + error.message, 'error');
                 enableForm();
             }
         });
@@ -312,8 +378,7 @@
             ws = new WebSocket(wsUrl);
 
             ws.onopen = () => {
-                addLog('✓ 连接已建立');
-                // 发送 task_id
+                addLog('连接已建立', 'success');
                 ws.send(JSON.stringify({ task_id: taskId }));
             };
 
@@ -323,43 +388,36 @@
             };
 
             ws.onerror = (error) => {
-                addLog('❌ WebSocket 错误');
+                addLog('WebSocket 错误', 'error');
                 console.error('WebSocket error:', error);
             };
 
             ws.onclose = () => {
-                addLog('✓ 连接已关闭');
+                addLog('连接已关闭', 'success');
             };
         }
 
         function handleProgress(progress) {
             const { step, total, step_name, status, message, details } = progress;
 
-            let icon = '⏳';
-            if (status === 'success') icon = '✓';
-            if (status === 'error') icon = '❌';
-
             const stepText = step > 0 ? `[${step}/${total}] ` : '';
-            addLog(`${icon} ${stepText}${message}`);
+            addLog(`${stepText}${message}`, status);
 
-            // 显示详细信息
             if (details) {
                 if (details.output) {
-                    addLog(`   ${details.output}`, 'text-gray-600');
+                    addLog(`  ${details.output}`, 'running');
                 }
                 if (details.files_count) {
-                    addLog(`   文件数: ${details.files_count}`, 'text-blue-600');
+                    addLog(`  文件数: ${details.files_count}`, 'running');
                 }
             }
 
-            // 如果是最后一步成功，显示完成消息
             if (status === 'success' && step === total) {
-                addLog('🎉 导入完成！', 'text-green-600 font-bold');
+                addLog('导入完成!', 'success');
                 enableForm();
                 closeWebSocket();
             }
 
-            // 如果出错，启用表单
             if (status === 'error') {
                 enableForm();
                 closeWebSocket();
@@ -373,63 +431,73 @@
             }
         }
 
-        // ==================== 日志显示 ====================
+        // ==================== 日志 ====================
 
-        function addLog(message, className = '') {
+        function addLog(message, status = '') {
             const entry = document.createElement('div');
-            entry.className = `log-entry ${className}`;
-            entry.textContent = message;
-            logArea.appendChild(entry);
+            let icon = '';
+            let cssClass = 'log-entry';
 
-            // 滚动到底部
+            switch (status) {
+                case 'success':
+                    icon = '\u2713 ';
+                    cssClass += ' log-success';
+                    break;
+                case 'error':
+                    icon = '\u2717 ';
+                    cssClass += ' log-error';
+                    break;
+                case 'running':
+                    icon = '\u25b6 ';
+                    cssClass += ' log-running';
+                    break;
+            }
+
+            entry.className = cssClass;
+            entry.textContent = icon + message;
+            logArea.appendChild(entry);
             logArea.scrollTop = logArea.scrollHeight;
         }
 
         // ==================== 表单控制 ====================
 
         function disableForm() {
-            importForm.querySelectorAll('input, select, button').forEach(el => {
-                el.disabled = true;
-            });
-            balanceInputs.querySelectorAll('input').forEach(el => {
-                el.disabled = true;
-            });
+            importForm.querySelectorAll('input, select').forEach(el => el.disabled = true);
+            balanceInputs.querySelectorAll('input').forEach(el => el.disabled = true);
+            passwordInputs.querySelectorAll('input, button').forEach(el => el.disabled = true);
+            addPasswordBtn.disabled = true;
             startBtn.disabled = true;
-            resetBtn.disabled = false;
         }
 
         function enableForm() {
-            importForm.querySelectorAll('input, select, button').forEach(el => {
-                el.disabled = false;
-            });
-            balanceInputs.querySelectorAll('input').forEach(el => {
-                el.disabled = false;
-            });
+            importForm.querySelectorAll('input, select').forEach(el => el.disabled = false);
+            balanceInputs.querySelectorAll('input').forEach(el => el.disabled = false);
+            passwordInputs.querySelectorAll('input, button').forEach(el => el.disabled = false);
+            addPasswordBtn.disabled = false;
             startBtn.disabled = false;
         }
 
         // ==================== 重置 ====================
 
         resetBtn.addEventListener('click', () => {
-            // 关闭 WebSocket
             closeWebSocket();
-
-            // 清空日志
             logArea.innerHTML = '';
             progressSection.classList.add('hidden');
 
-            // 清空余额输入
             balanceInputs.querySelectorAll('input').forEach(input => {
                 input.value = '';
-                input.classList.remove('border-red-500');
+                input.classList.remove('border-red-400');
+                input.classList.add('border-gray-300');
             });
 
-            // 重置模式为通常
+            // 清空密码列表
+            passwordInputs.innerHTML = '';
+            noPasswordHint.classList.remove('hidden');
+
             document.querySelector('input[name="mode"][value="normal"]').checked = true;
+            modeDescription.textContent = modeDescriptions.normal;
 
-            // 启用表单
             enableForm();
-
             currentTaskId = null;
         });
 

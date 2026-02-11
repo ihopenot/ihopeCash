@@ -344,6 +344,93 @@ class Config:
         
         return warnings
     
+    # ==================== Web 端配置编辑 ====================
+    
+    # 受保护的顶层字段（PUT 时自动跳过）
+    _PROTECTED_TOP_KEYS = {"web", "passwords", "pdf_passwords"}
+    # 受保护的 system 子字段
+    _PROTECTED_SYSTEM_KEYS = {"data_path", "rawdata_path", "archive_path"}
+    
+    def get_editable_config(self) -> Dict[str, Any]:
+        """返回脱敏后的可编辑配置
+        
+        排除: web 节点、路径字段、passwords、pdf_passwords
+        脱敏: email.imap.password 置为空字符串
+        
+        Returns:
+            脱敏后的可编辑配置字典
+        """
+        result = copy.deepcopy(self._config)
+        
+        # 移除受保护的顶层字段
+        for key in self._PROTECTED_TOP_KEYS:
+            result.pop(key, None)
+        
+        # 移除受保护的 system 子字段
+        if "system" in result:
+            for key in self._PROTECTED_SYSTEM_KEYS:
+                result["system"].pop(key, None)
+        
+        # 脱敏: email.imap.password 置空
+        if "email" in result and "imap" in result.get("email", {}):
+            result["email"]["imap"]["password"] = ""
+        
+        return result
+    
+    def update_from_web(self, data: Dict[str, Any]):
+        """从 Web 端提交的数据更新配置
+        
+        后端强制跳过受保护字段，email.imap.password 空值跳过、非空更新。
+        保存到文件并重新加载。
+        
+        Args:
+            data: 前端提交的配置数据
+        """
+        # 移除受保护的顶层字段（即使前端提交了也忽略）
+        for key in self._PROTECTED_TOP_KEYS:
+            data.pop(key, None)
+        
+        # 处理 system 字段：保护路径字段
+        if "system" in data:
+            for key in self._PROTECTED_SYSTEM_KEYS:
+                data["system"].pop(key, None)
+            # 合并 system 的可编辑字段
+            if "system" in self._config:
+                self._config["system"].update(data.pop("system"))
+            else:
+                self._config["system"] = data.pop("system")
+        
+        # 处理 email.imap.password：空值跳过，非空更新
+        if "email" in data and "imap" in data.get("email", {}):
+            new_email_password = data["email"]["imap"].get("password", "")
+            if not new_email_password:
+                # 空值 -> 保留原密码
+                original_password = self._config.get("email", {}).get("imap", {}).get("password", "")
+                data["email"]["imap"]["password"] = original_password
+        
+        # 合并其余可编辑字段
+        for key, value in data.items():
+            if isinstance(value, dict) and isinstance(self._config.get(key), dict):
+                self._config[key].update(value)
+            else:
+                self._config[key] = value
+        
+        # 保存并重新加载
+        self.save()
+        self.load()
+    
+    def update_web_password(self, new_password: str):
+        """更新 Web 登录密码
+        
+        Args:
+            new_password: 新密码
+        """
+        if "web" not in self._config:
+            self._config["web"] = {}
+        self._config["web"]["password"] = new_password
+        self.save()
+        self.load()
+    
     # ==================== 调试与信息 ====================
     
     def __repr__(self) -> str:

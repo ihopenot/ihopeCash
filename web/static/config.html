@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>配置管理 - IhopeCash Web</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 顶部导航栏 -->
+    <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6">
+            <div class="flex justify-between items-center h-14">
+                <div class="flex items-center space-x-8">
+                    <a href="/" class="text-lg font-bold text-gray-900 tracking-tight">IhopeCash</a>
+                    <div class="flex space-x-1">
+                        <a href="/" class="px-3 py-1.5 text-sm font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition">导入</a>
+                        <a href="/config" class="px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-50 text-blue-700">配置</a>
+                    </div>
+                </div>
+                <button id="logoutBtn" class="text-sm text-gray-500 hover:text-gray-700 transition">退出登录</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 py-6">
+        <!-- 警告提示 -->
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
+            <div class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-amber-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.168 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                <p class="text-sm text-amber-800">由于 Beancount 无法动态修改账户名，账户内有数据的情况下请<strong>不要修改账户名</strong>。修改后可能导致数据不一致。</p>
+            </div>
+        </div>
+
+        <!-- 消息提示 -->
+        <div id="messageBar" class="hidden rounded-xl p-4 mb-5 transition-all"></div>
+
+        <!-- Tab 切换 -->
+        <div class="flex space-x-1 bg-gray-100 p-1 rounded-xl mb-5">
+            <button class="tab-btn flex-1 py-2 text-sm font-medium rounded-lg transition" data-tab="basic">基础配置</button>
+            <button class="tab-btn flex-1 py-2 text-sm font-medium rounded-lg transition" data-tab="advanced">高级配置</button>
+            <button class="tab-btn flex-1 py-2 text-sm font-medium rounded-lg transition" data-tab="password">修改密码</button>
+        </div>
+
+        <!-- ==================== Tab 1: 基础配置 ==================== -->
+        <div id="tab-basic" class="tab-content space-y-5">
+            <!-- 余额账户 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-base font-semibold text-gray-800">余额账户 (balance_accounts)</h3>
+                    <button id="addAccountBtn" type="button" class="text-sm text-blue-600 hover:text-blue-700 font-medium transition">+ 添加账户</button>
+                </div>
+                <div id="accountsList" class="space-y-2">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+
+            <!-- 邮箱配置 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 class="text-base font-semibold text-gray-800 mb-4">邮箱配置 (email.imap)</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">IMAP 服务器</label>
+                        <input type="text" id="email_host" class="cfg-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" placeholder="imap.qq.com">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">端口</label>
+                        <input type="number" id="email_port" class="cfg-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" placeholder="993">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">用户名</label>
+                        <input type="text" id="email_username" class="cfg-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" placeholder="user@qq.com">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">密码</label>
+                        <input type="password" id="email_password" class="cfg-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" placeholder="留空表示不修改">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium text-gray-600 mb-1">邮箱文件夹</label>
+                        <input type="text" id="email_mailbox" class="cfg-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" placeholder="INBOX">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 保存按钮 -->
+            <div class="flex justify-end">
+                <button id="saveBasicBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-xl transition-all shadow-sm">保存基础配置</button>
+            </div>
+        </div>
+
+        <!-- ==================== Tab 2: 高级配置 ==================== -->
+        <div id="tab-advanced" class="tab-content space-y-5 hidden">
+            <!-- 通用账户 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 class="text-base font-semibold text-gray-800 mb-4">通用账户</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">默认支出账户</label>
+                        <input type="text" id="unknown_expense_account" class="cfg-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">默认收入账户</label>
+                        <input type="text" id="unknown_income_account" class="cfg-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 支付宝导入器 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 class="text-base font-semibold text-gray-800 mb-4">支付宝 (importers.alipay)</h3>
+                <div class="space-y-3" id="alipay_fields">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+
+            <!-- 微信导入器 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 class="text-base font-semibold text-gray-800 mb-4">微信 (importers.wechat)</h3>
+                <div class="space-y-3" id="wechat_fields">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+
+            <!-- 清华饭卡导入器 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 class="text-base font-semibold text-gray-800 mb-4">清华饭卡 (importers.thu_ecard)</h3>
+                <div class="space-y-3" id="thu_ecard_fields">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+
+            <!-- HSBC HK 导入器 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 class="text-base font-semibold text-gray-800 mb-4">HSBC HK (importers.hsbc_hk)</h3>
+                <div class="space-y-3">
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="hsbc_use_cnh" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        <label class="text-sm text-gray-600" for="hsbc_use_cnh">use_cnh</label>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">account_mapping (JSON)</label>
+                        <textarea id="hsbcAccountMappingJson" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm font-mono" placeholder="{}"></textarea>
+                        <p id="hsbcAccountMappingJsonError" class="text-xs text-red-500 mt-1 hidden">JSON 格式错误</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 卡号摘要过滤 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 class="text-base font-semibold text-gray-800 mb-4">交易摘要过滤</h3>
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-sm font-medium text-gray-600">白名单 (card_narration_whitelist)</label>
+                            <button type="button" class="add-list-btn text-sm text-blue-600 hover:text-blue-700 font-medium" data-target="whitelist_items">+ 添加</button>
+                        </div>
+                        <div id="whitelist_items" class="space-y-2"></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-sm font-medium text-gray-600">黑名单 (card_narration_blacklist)</label>
+                            <button type="button" class="add-list-btn text-sm text-blue-600 hover:text-blue-700 font-medium" data-target="blacklist_items">+ 添加</button>
+                        </div>
+                        <div id="blacklist_items" class="space-y-2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 卡号账户映射 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 class="text-base font-semibold text-gray-800 mb-2">卡号账户映射 (card_accounts)</h3>
+                <p class="text-xs text-gray-400 mb-3">嵌套结构，请直接编辑 JSON（格式如 {"Assets": {"BoC:Card": ["1234"]}}）</p>
+                <textarea id="cardAccountsJson" rows="6" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm font-mono" placeholder="{}"></textarea>
+                <p id="cardAccountsJsonError" class="text-xs text-red-500 mt-1 hidden">JSON 格式错误</p>
+            </div>
+
+            <!-- 交易匹配规则 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-base font-semibold text-gray-800">交易匹配规则 (detail_mappings)</h3>
+                    <button id="addMappingBtn" type="button" class="text-sm text-blue-600 hover:text-blue-700 font-medium">+ 添加规则</button>
+                </div>
+                <div id="detailMappingsList" class="space-y-3">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+
+            <!-- 保存按钮 -->
+            <div class="flex justify-end">
+                <button id="saveAdvancedBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-xl transition-all shadow-sm">保存高级配置</button>
+            </div>
+        </div>
+
+        <!-- ==================== Tab 3: 修改密码 ==================== -->
+        <div id="tab-password" class="tab-content hidden">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 class="text-base font-semibold text-gray-800 mb-4">修改登录密码</h3>
+                <form id="changePasswordForm" class="space-y-4 max-w-md">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">当前密码</label>
+                        <input type="password" id="currentPassword" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">新密码</label>
+                        <input type="password" id="newPassword" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">确认新密码</label>
+                        <input type="password" id="confirmPassword" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" required>
+                    </div>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-xl transition-all shadow-sm">修改密码</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 全局 ====================
+        let configData = null;
+
+        function checkAuth() {
+            const token = localStorage.getItem('auth_token');
+            if (!token) { window.location.href = '/login'; return false; }
+            return true;
+        }
+
+        function getAuthHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            };
+        }
+
+        function showMessage(text, type = 'success') {
+            const bar = document.getElementById('messageBar');
+            bar.className = type === 'success'
+                ? 'rounded-xl p-4 mb-5 bg-green-50 border border-green-200 text-green-800 text-sm'
+                : 'rounded-xl p-4 mb-5 bg-red-50 border border-red-200 text-red-800 text-sm';
+            bar.textContent = text;
+            bar.classList.remove('hidden');
+            setTimeout(() => bar.classList.add('hidden'), 4000);
+        }
+
+        // ==================== Tab 切换 ====================
+
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+                // 切换 active 样式
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.classList.remove('bg-white', 'shadow-sm', 'text-gray-900');
+                    b.classList.add('text-gray-500');
+                });
+                btn.classList.add('bg-white', 'shadow-sm', 'text-gray-900');
+                btn.classList.remove('text-gray-500');
+                // 切换内容
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+                document.getElementById(`tab-${tab}`).classList.remove('hidden');
+            });
+        });
+
+        // 默认选中第一个 tab
+        document.querySelector('.tab-btn[data-tab="basic"]').click();
+
+        // ==================== 加载配置 ====================
+
+        async function loadConfig() {
+            if (!checkAuth()) return;
+            try {
+                const resp = await fetch('/api/config/full', { headers: getAuthHeaders() });
+                if (resp.status === 401) { localStorage.removeItem('auth_token'); window.location.href = '/login'; return; }
+                configData = await resp.json();
+                renderBasicTab();
+                renderAdvancedTab();
+            } catch (e) {
+                console.error('Load config error:', e);
+                showMessage('加载配置失败: ' + e.message, 'error');
+            }
+        }
+
+        // ==================== Tab 1: 基础配置渲染 ====================
+
+        function renderBasicTab() {
+            // 余额账户
+            const accounts = configData.system?.balance_accounts || [];
+            const list = document.getElementById('accountsList');
+            list.innerHTML = '';
+            accounts.forEach(acc => addAccountRow(acc));
+
+            // 邮箱
+            const imap = configData.email?.imap || {};
+            document.getElementById('email_host').value = imap.host || '';
+            document.getElementById('email_port').value = imap.port || '';
+            document.getElementById('email_username').value = imap.username || '';
+            document.getElementById('email_password').value = ''; // 脱敏，不显示
+            document.getElementById('email_mailbox').value = imap.mailbox || '';
+        }
+
+        function addAccountRow(value = '') {
+            const list = document.getElementById('accountsList');
+            const div = document.createElement('div');
+            div.className = 'flex items-center gap-2';
+            div.innerHTML = `
+                <input type="text" class="account-input flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" value="${value}" placeholder="例如 Assets:BoC:Card:XXX">
+                <button type="button" class="remove-btn text-gray-400 hover:text-red-500 transition p-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            `;
+            list.appendChild(div);
+            div.querySelector('.remove-btn').addEventListener('click', () => div.remove());
+        }
+
+        document.getElementById('addAccountBtn').addEventListener('click', () => addAccountRow());
+
+        // ==================== Tab 2: 高级配置渲染 ====================
+
+        function renderAdvancedTab() {
+            // 通用账户
+            document.getElementById('unknown_expense_account').value = configData.unknown_expense_account || '';
+            document.getElementById('unknown_income_account').value = configData.unknown_income_account || '';
+
+            // 导入器字段
+            renderImporterFields('alipay_fields', configData.importers?.alipay || {});
+            renderImporterFields('wechat_fields', configData.importers?.wechat || {});
+            renderImporterFields('thu_ecard_fields', configData.importers?.thu_ecard || {});
+            renderHsbcFields();
+
+            // 白名单/黑名单
+            renderStringList('whitelist_items', configData.importers?.card_narration_whitelist || []);
+            renderStringList('blacklist_items', configData.importers?.card_narration_blacklist || []);
+
+            // 卡号账户映射
+            renderCardAccounts();
+
+            // 交易匹配规则
+            renderDetailMappings();
+
+            // 绑定添加按钮
+            document.querySelectorAll('.add-list-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    addStringListRow(btn.dataset.target);
+                });
+            });
+        }
+
+        function renderImporterFields(containerId, data) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            for (const [key, value] of Object.entries(data)) {
+                if (key === 'category_mapping' || key === 'account_mapping') continue; // 复杂对象单独处理
+                const div = document.createElement('div');
+                const inputType = typeof value === 'boolean' ? 'checkbox' : 'text';
+                if (inputType === 'checkbox') {
+                    div.className = 'flex items-center gap-2';
+                    div.innerHTML = `
+                        <input type="checkbox" class="importer-field rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-key="${key}" ${value ? 'checked' : ''}>
+                        <label class="text-sm text-gray-600">${key}</label>
+                    `;
+                } else {
+                    div.innerHTML = `
+                        <label class="block text-sm font-medium text-gray-600 mb-1">${key}</label>
+                        <input type="text" class="importer-field w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" data-key="${key}" value="${value || ''}">
+                    `;
+                }
+                container.appendChild(div);
+            }
+        }
+
+        function renderHsbcFields() {
+            const data = configData.importers?.hsbc_hk || {};
+            document.getElementById('hsbc_use_cnh').checked = !!data.use_cnh;
+            const mapping = data.account_mapping || {};
+            document.getElementById('hsbcAccountMappingJson').value = JSON.stringify(mapping, null, 2);
+        }
+
+        function renderStringList(containerId, items) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            items.forEach(item => addStringListRow(containerId, item));
+        }
+
+        function addStringListRow(containerId, value = '') {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = 'flex items-center gap-2';
+            div.innerHTML = `
+                <input type="text" class="list-item flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" value="${value}">
+                <button type="button" class="remove-btn text-gray-400 hover:text-red-500 transition p-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            `;
+            container.appendChild(div);
+            div.querySelector('.remove-btn').addEventListener('click', () => div.remove());
+        }
+
+        function renderCardAccounts() {
+            const textarea = document.getElementById('cardAccountsJson');
+            const data = configData.card_accounts || {};
+            textarea.value = JSON.stringify(data, null, 2);
+        }
+
+        // ==================== 交易匹配规则 ====================
+
+        function renderDetailMappings() {
+            const list = document.getElementById('detailMappingsList');
+            list.innerHTML = '';
+            const mappings = configData.detail_mappings || [];
+            mappings.forEach(m => addMappingRow(m));
+        }
+
+        function addMappingRow(data = {}) {
+            const list = document.getElementById('detailMappingsList');
+            const div = document.createElement('div');
+            div.className = 'mapping-item border border-gray-200 rounded-lg p-4 space-y-3';
+            div.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <span class="text-sm font-medium text-gray-700">匹配规则</span>
+                    <button type="button" class="remove-btn text-gray-400 hover:text-red-500 transition text-sm">删除</button>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">payee_keywords (逗号分隔)</label>
+                        <input type="text" class="mapping-payee w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${(data.payee_keywords || []).join(', ')}">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">narration_keywords (逗号分隔)</label>
+                        <input type="text" class="mapping-narration w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${(data.narration_keywords || []).join(', ')}">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">account</label>
+                        <input type="text" class="mapping-account w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${data.account || ''}">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">tags (逗号分隔)</label>
+                        <input type="text" class="mapping-tags w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${(data.tags || []).join(', ')}">
+                    </div>
+                </div>
+            `;
+            list.appendChild(div);
+            div.querySelector('.remove-btn').addEventListener('click', () => div.remove());
+        }
+
+        document.getElementById('addMappingBtn').addEventListener('click', () => addMappingRow());
+
+        // ==================== 收集数据 ====================
+
+        function collectBasicConfig() {
+            const accounts = [];
+            document.querySelectorAll('#accountsList .account-input').forEach(input => {
+                const val = input.value.trim();
+                if (val) accounts.push(val);
+            });
+
+            return {
+                system: { balance_accounts: accounts },
+                email: {
+                    imap: {
+                        host: document.getElementById('email_host').value.trim(),
+                        port: parseInt(document.getElementById('email_port').value) || 993,
+                        username: document.getElementById('email_username').value.trim(),
+                        password: document.getElementById('email_password').value, // 空值后端会跳过
+                        mailbox: document.getElementById('email_mailbox').value.trim()
+                    }
+                }
+            };
+        }
+
+        function collectImporterData(containerId) {
+            const result = {};
+            document.querySelectorAll(`#${containerId} .importer-field`).forEach(el => {
+                const key = el.dataset.key;
+                if (el.type === 'checkbox') {
+                    result[key] = el.checked;
+                } else {
+                    result[key] = el.value;
+                }
+            });
+            return result;
+        }
+
+        function collectStringList(containerId) {
+            const result = [];
+            document.querySelectorAll(`#${containerId} .list-item`).forEach(input => {
+                const val = input.value.trim();
+                if (val) result.push(val);
+            });
+            return result;
+        }
+
+        function collectDetailMappings() {
+            const mappings = [];
+            document.querySelectorAll('#detailMappingsList .mapping-item').forEach(item => {
+                const payee = item.querySelector('.mapping-payee').value.split(',').map(s => s.trim()).filter(Boolean);
+                const narration = item.querySelector('.mapping-narration').value.split(',').map(s => s.trim()).filter(Boolean);
+                const account = item.querySelector('.mapping-account').value.trim();
+                const tags = item.querySelector('.mapping-tags').value.split(',').map(s => s.trim()).filter(Boolean);
+                if (account || payee.length || narration.length) {
+                    mappings.push({ payee_keywords: payee, narration_keywords: narration, account, tags });
+                }
+            });
+            return mappings;
+        }
+
+        function collectAdvancedConfig() {
+            const alipay = collectImporterData('alipay_fields');
+            const wechat = collectImporterData('wechat_fields');
+            const thu_ecard = collectImporterData('thu_ecard_fields');
+
+            // hsbc_hk: account_mapping 从 JSON textarea 解析
+            let hsbc_account_mapping = {};
+            const hsbcJsonError = document.getElementById('hsbcAccountMappingJsonError');
+            try {
+                const raw = document.getElementById('hsbcAccountMappingJson').value.trim();
+                hsbc_account_mapping = raw ? JSON.parse(raw) : {};
+                hsbcJsonError.classList.add('hidden');
+            } catch (e) {
+                hsbcJsonError.classList.remove('hidden');
+                throw new Error('hsbc_hk account_mapping JSON 格式错误');
+            }
+            const hsbc_hk = {
+                use_cnh: document.getElementById('hsbc_use_cnh')?.checked || false,
+                account_mapping: hsbc_account_mapping
+            };
+
+            // card_accounts 从 JSON textarea 解析
+            let card_accounts = {};
+            const jsonError = document.getElementById('cardAccountsJsonError');
+            try {
+                const raw = document.getElementById('cardAccountsJson').value.trim();
+                card_accounts = raw ? JSON.parse(raw) : {};
+                jsonError.classList.add('hidden');
+            } catch (e) {
+                jsonError.classList.remove('hidden');
+                throw new Error('card_accounts JSON 格式错误');
+            }
+
+            return {
+                unknown_expense_account: document.getElementById('unknown_expense_account').value.trim(),
+                unknown_income_account: document.getElementById('unknown_income_account').value.trim(),
+                importers: {
+                    alipay,
+                    wechat,
+                    thu_ecard,
+                    hsbc_hk,
+                    card_narration_whitelist: collectStringList('whitelist_items'),
+                    card_narration_blacklist: collectStringList('blacklist_items')
+                },
+                card_accounts,
+                detail_mappings: collectDetailMappings()
+            };
+        }
+
+        // ==================== 保存配置 ====================
+
+        async function saveConfig(data) {
+            try {
+                const resp = await fetch('/api/config/full', {
+                    method: 'PUT',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(data)
+                });
+                if (resp.status === 401) { localStorage.removeItem('auth_token'); window.location.href = '/login'; return; }
+                const result = await resp.json();
+                if (result.success) {
+                    showMessage(result.message);
+                    await loadConfig(); // 重新加载
+                } else {
+                    showMessage(result.detail || '保存失败', 'error');
+                }
+            } catch (e) {
+                showMessage('保存失败: ' + e.message, 'error');
+            }
+        }
+
+        document.getElementById('saveBasicBtn').addEventListener('click', () => {
+            saveConfig(collectBasicConfig());
+        });
+
+        document.getElementById('saveAdvancedBtn').addEventListener('click', () => {
+            try {
+                saveConfig(collectAdvancedConfig());
+            } catch (e) {
+                showMessage(e.message, 'error');
+            }
+        });
+
+        // ==================== 修改密码 ====================
+
+        document.getElementById('changePasswordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const current = document.getElementById('currentPassword').value;
+            const newPwd = document.getElementById('newPassword').value;
+            const confirm = document.getElementById('confirmPassword').value;
+
+            if (newPwd !== confirm) {
+                showMessage('两次输入的新密码不一致', 'error');
+                return;
+            }
+
+            if (!newPwd.trim()) {
+                showMessage('新密码不能为空', 'error');
+                return;
+            }
+
+            try {
+                const resp = await fetch('/api/config/change-password', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ current_password: current, new_password: newPwd })
+                });
+                const result = await resp.json();
+                if (resp.ok && result.success) {
+                    showMessage(result.message);
+                    document.getElementById('changePasswordForm').reset();
+                } else {
+                    showMessage(result.detail || '修改失败', 'error');
+                }
+            } catch (e) {
+                showMessage('修改失败: ' + e.message, 'error');
+            }
+        });
+
+        // ==================== 退出登录 ====================
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('token_expire_at');
+            window.location.href = '/login';
+        });
+
+        // ==================== 初始化 ====================
+
+        window.addEventListener('DOMContentLoaded', loadConfig);
+    </script>
+</body>
+</html>
