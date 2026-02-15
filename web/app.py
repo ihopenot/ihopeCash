@@ -530,6 +530,53 @@ async def websocket_progress(websocket: WebSocket):
             await task_manager.remove_websocket(task_id, websocket)
 
 
+# ==================== 账本状态 API ====================
+
+@app.get("/api/ledger-status")
+async def get_ledger_status(user: dict = Depends(get_current_user)):
+    """获取账本版本管理状态
+    
+    需要认证
+    
+    Returns:
+        {"period": str|null} - 当前账期，null 表示已同步
+    """
+    from backend import BillManager
+    manager = BillManager(config)
+    
+    # 如果工作区 clean，清理可能残留的 .ledger-period 并返回 null
+    if manager.git_is_clean():
+        manager.clear_ledger_period()
+        return {"period": None}
+    
+    # 工作区有变更，返回当前账期
+    period = manager.read_ledger_period()
+    return {"period": period}
+
+
+@app.post("/api/ledger-discard")
+async def discard_ledger_changes(user: dict = Depends(get_current_user)):
+    """撤销账本所有未提交变更
+    
+    需要认证
+    
+    Returns:
+        {"success": bool, "message": str}
+    """
+    from backend import BillManager
+    manager = BillManager(config)
+    
+    if manager.git_is_clean():
+        return {"success": True, "message": "无变更需要撤销"}
+    
+    try:
+        manager.git_discard_changes()
+        return {"success": True, "message": "变更已撤销"}
+    except Exception as e:
+        logger.exception("撤销变更失败")
+        return {"success": False, "message": str(e)}
+
+
 # ==================== 账本管理 API ====================
 
 VALID_ACCOUNT_TYPES = ["Assets", "Liabilities", "Income", "Expenses", "Equity"]

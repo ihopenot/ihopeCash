@@ -35,6 +35,143 @@ class BillManager:
         self.rawdata_path = config.rawdata_path
         self.archive_path = config.archive_path
     
+    # ==================== Git 操作 ====================
+    
+    def _run_git(self, args: List[str]) -> subprocess.CompletedProcess:
+        """执行 git 命令
+        
+        Args:
+            args: git 子命令和参数列表，如 ["status", "--porcelain"]
+            
+        Returns:
+            subprocess.CompletedProcess 结果
+            
+        Raises:
+            RuntimeError: git 命令执行失败
+        """
+        cmd = ["git"] + args
+        result = subprocess.run(
+            cmd,
+            cwd=self.data_path,
+            capture_output=True,
+            text=True
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"git {args[0]} 失败: {result.stderr.strip()}")
+        return result
+    
+    def git_ensure_repo(self):
+        """检测并初始化 data git 仓库
+        
+        如果 data/.git 不存在，执行 git init，创建 .gitignore，并完成首次提交。
+        
+        Raises:
+            RuntimeError: git 未安装或初始化失败
+        """
+        git_dir = os.path.join(self.data_path, ".git")
+        if os.path.exists(git_dir):
+            return
+        
+        # 检测 git 是否可用
+        try:
+            subprocess.run(
+                ["git", "--version"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+        except FileNotFoundError:
+            raise RuntimeError("未检测到 git 命令，请先安装 git")
+        
+        # git init
+        self._run_git(["init"])
+        
+        # 创建 .gitignore
+        gitignore_path = os.path.join(self.data_path, ".gitignore")
+        with open(gitignore_path, "w", encoding="utf-8") as f:
+            f.write(".ledger-period\n")
+        
+        # 首次提交
+        self._run_git(["add", "."])
+        self._run_git(["commit", "-m", "初始化账本"])
+    
+    def git_is_clean(self) -> bool:
+        """检查 data git 工作区是否干净
+        
+        Returns:
+            True 表示工作区干净（无变更），False 表示有未提交变更。
+            如果 data/.git 不存在，返回 True。
+        """
+        git_dir = os.path.join(self.data_path, ".git")
+        if not os.path.exists(git_dir):
+            return True
+        
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=self.data_path,
+            capture_output=True,
+            text=True
+        )
+        return result.stdout.strip() == ""
+    
+    def git_commit_if_dirty(self, period: str):
+        """有变更时自动提交
+        
+        Args:
+            period: 账期，用于 commit message，如 "2026-01"
+        """
+        if self.git_is_clean():
+            return
+        
+        self._run_git(["add", "."])
+        self._run_git(["commit", "-m", f"账期 {period}"])
+    
+    def git_discard_changes(self):
+        """丢弃所有未提交的工作区变更
+        
+        执行 git checkout -- . 恢复已跟踪文件，git clean -fd 删除未跟踪文件，
+        并清除 .ledger-period 文件。
+        """
+        git_dir = os.path.join(self.data_path, ".git")
+        if not os.path.exists(git_dir):
+            return
+        
+        self._run_git(["checkout", "--", "."])
+        self._run_git(["clean", "-fd"])
+        self.clear_ledger_period()
+    
+    # ==================== 账期文件管理 ====================
+    
+    def read_ledger_period(self) -> Optional[str]:
+        """读取当前账期
+        
+        Returns:
+            账期字符串（如 "2026-02"），文件不存在时返回 None
+        """
+        period_file = os.path.join(self.data_path, ".ledger-period")
+        if not os.path.exists(period_file):
+            return None
+        with open(period_file, "r", encoding="utf-8") as f:
+            return f.read().strip() or None
+    
+    def write_ledger_period(self, period: str):
+        """写入当前账期
+        
+        Args:
+            period: 账期字符串，如 "2026-02"
+        """
+        period_file = os.path.join(self.data_path, ".ledger-period")
+        with open(period_file, "w", encoding="utf-8") as f:
+            f.write(period)
+    
+    def clear_ledger_period(self):
+        """清除账期文件"""
+        period_file = os.path.join(self.data_path, ".ledger-period")
+        if os.path.exists(period_file):
+            os.remove(period_file)
+    
+    # ==================== Beancount 命令封装 ====================
+    
     def bean_identify(self) -> str:
         """识别文件类型
         
@@ -303,7 +440,7 @@ include "total.bean"
             if progress_callback:
                 progress_callback({
                     "step": step,
-                    "total": 6,
+                    "total": 7,
                     "step_name": step_name,
                     "status": status,
                     "message": message,
@@ -311,32 +448,44 @@ include "total.bean"
                 })
         
         try:
-            # 1. 下载邮件账单
-            send_progress(1, "download", "running", "正在下载邮件账单...")
+            # 1. Git 提交上期变更
+            send_progress(1, "git_commit", "running", "正在检查版本管理状态...")
+            git_dir = os.path.join(self.data_path, ".git")
+            if not os.path.exists(git_dir):
+                send_progress(1, "git_commit", "running", "正在初始化版本管理...")
+                self.git_ensure_repo()
+                send_progress(1, "git_commit", "success", "版本管理初始化完成")
+            elif not self.git_is_clean():
+                send_progress(1, "git_commit", "running", "正在提交上期变更...")
+                prev_period = self.read_ledger_period() or "未知账期"
+                self.git_commit_if_dirty(prev_period)
+                self.clear_ledger_period()
+                send_progress(1, "git_commit", "success", f"上期变更已提交（{prev_period}）")
+            else:
+                send_progress(1, "git_commit", "success", "无待提交的变更，跳过")
+            
+            # 2. 下载邮件账单
+            send_progress(2, "download", "running", "正在下载邮件账单...")
             self.download_bills(passwords)
-            # 统计下载的文件数
             files_count = len(glob.glob(os.path.join(self.rawdata_path, "*")))
-            send_progress(1, "download", "success", f"邮件下载完成，共 {files_count} 个文件", {"files_count": files_count})
+            send_progress(2, "download", "success", f"邮件下载完成，共 {files_count} 个文件", {"files_count": files_count})
             
-            # 2. 识别文件类型
-            send_progress(2, "identify", "running", "正在识别文件类型...")
+            # 3. 识别文件类型
+            send_progress(3, "identify", "running", "正在识别文件类型...")
             identify_output = self.bean_identify()
-            send_progress(2, "identify", "success", "文件识别完成", {"output": identify_output})
+            send_progress(3, "identify", "success", "文件识别完成", {"output": identify_output})
             
-            # 3. 创建目录或追加文件
+            # 4. 创建目录或追加文件
             if mode == "append":
-                send_progress(3, "append_file", "running", "正在创建追加文件...")
-                # 检查目录是否存在
+                send_progress(4, "append_file", "running", "正在创建追加文件...")
                 if not self.month_directory_exists(year, month):
                     raise RuntimeError(f"目录 {os.path.join(self.data_path, year, month)} 不存在，无法追加")
                 
-                # 生成时间戳文件名
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 append_name = f"append_{timestamp}"
                 append_file = os.path.join(self.data_path, year, month, f"{append_name}.bean")
                 Path(append_file).touch()
                 
-                # 更新 _.bean
                 folder_bean = os.path.join(self.data_path, year, month, "_.bean")
                 include_line = f'include "{append_name}.bean"\n'
                 with open(folder_bean, "a") as f:
@@ -344,28 +493,32 @@ include "total.bean"
                 
                 month_path = os.path.join(self.data_path, year, month)
                 extract_target = append_file
-                send_progress(3, "append_file", "success", f"追加文件创建完成: {append_name}.bean")
+                send_progress(4, "append_file", "success", f"追加文件创建完成: {append_name}.bean")
             else:
-                send_progress(3, "create_dir", "running", "正在创建目录结构...")
+                send_progress(4, "create_dir", "running", "正在创建目录结构...")
                 force_overwrite = (mode == "force")
                 month_path = self.create_month_directory(year, month, force_overwrite)
                 extract_target = os.path.join(month_path, "total.bean")
-                send_progress(3, "create_dir", "success", f"目录创建完成: {month_path}")
+                send_progress(4, "create_dir", "success", f"目录创建完成: {month_path}")
             
-            # 4. 提取交易记录
-            send_progress(4, "extract", "running", "正在提取交易记录...")
+            # 5. 提取交易记录
+            send_progress(5, "extract", "running", "正在提取交易记录...")
             self.bean_extract(extract_target)
-            send_progress(4, "extract", "success", "交易提取完成")
+            send_progress(5, "extract", "success", "交易提取完成")
             
-            # 5. 记录余额断言
-            send_progress(5, "balance", "running", "正在记录余额断言...")
+            # 6. 记录余额断言
+            send_progress(6, "balance", "running", "正在记录余额断言...")
             self.record_balances(year, month, balances)
-            send_progress(5, "balance", "success", f"余额记录完成，共 {len(balances)} 个账户")
+            send_progress(6, "balance", "success", f"余额记录完成，共 {len(balances)} 个账户")
             
-            # 6. 归档原始文件
-            send_progress(6, "archive", "running", "正在归档原始文件...")
+            # 7. 归档原始文件
+            send_progress(7, "archive", "running", "正在归档原始文件...")
             self.bean_archive()
-            send_progress(6, "archive", "success", "归档完成")
+            send_progress(7, "archive", "success", "归档完成")
+            
+            # 写入本次账期
+            period = f"{year}-{str(month).zfill(2)}"
+            self.write_ledger_period(period)
             
             return {
                 "success": True,
@@ -380,7 +533,6 @@ include "total.bean"
             
         except Exception as e:
             logger.exception("带进度导入失败")
-            # 发送错误消息
             send_progress(0, "error", "error", str(e))
             return {
                 "success": False,

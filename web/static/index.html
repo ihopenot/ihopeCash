@@ -32,6 +32,17 @@
 
     <div class="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-5">
 
+        <!-- 账本状态栏 -->
+        <div id="ledgerStatusBar" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center justify-between">
+            <div id="ledgerStatusText" class="text-sm text-gray-500">加载中...</div>
+            <button
+                id="discardBtn"
+                class="hidden text-sm text-red-500 hover:text-red-700 font-medium transition px-3 py-1 rounded-lg hover:bg-red-50"
+            >
+                撤销变更
+            </button>
+        </div>
+
         <!-- 账单信息表单 -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
             <h2 class="text-base font-semibold text-gray-800 mb-4">账单信息</h2>
@@ -143,6 +154,8 @@
         let currentTaskId = null;
 
         // DOM 元素
+        const ledgerStatusText = document.getElementById('ledgerStatusText');
+        const discardBtn = document.getElementById('discardBtn');
         const importForm = document.getElementById('importForm');
         const yearSelect = document.getElementById('year');
         const monthSelect = document.getElementById('month');
@@ -183,11 +196,67 @@
                 initYearMonth();
                 initBalanceInputs();
                 initModeRadios();
+                await loadLedgerStatus();
             } catch (error) {
                 console.error('Init error:', error);
                 alert('加载配置失败');
             }
         }
+
+        // ==================== 账本状态栏 ====================
+
+        async function loadLedgerStatus() {
+            try {
+                const response = await fetch('/api/ledger-status', {
+                    headers: getAuthHeaders()
+                });
+                if (response.status === 401) return;
+                const data = await response.json();
+                renderLedgerStatus(data.period);
+            } catch (error) {
+                console.error('Load ledger status error:', error);
+                ledgerStatusText.textContent = '状态获取失败';
+                discardBtn.classList.add('hidden');
+            }
+        }
+
+        function renderLedgerStatus(period) {
+            if (period) {
+                const parts = period.split('-');
+                const year = parts[0];
+                const month = parseInt(parts[1], 10);
+                ledgerStatusText.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-blue-500 mr-2"></span>当前账期: ' + year + '年' + month + '月';
+                ledgerStatusText.className = 'text-sm text-gray-700 font-medium';
+                discardBtn.classList.remove('hidden');
+            } else {
+                ledgerStatusText.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-green-500 mr-2"></span>账本已同步';
+                ledgerStatusText.className = 'text-sm text-green-600 font-medium';
+                discardBtn.classList.add('hidden');
+            }
+        }
+
+        discardBtn.addEventListener('click', async () => {
+            const confirmed = confirm('即将丢弃上次提交以来的所有修改，此操作不可恢复。\n\n确认撤销吗？');
+            if (!confirmed) return;
+
+            try {
+                discardBtn.disabled = true;
+                const response = await fetch('/api/ledger-discard', {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                });
+                const data = await response.json();
+                if (data.success) {
+                    await loadLedgerStatus();
+                } else {
+                    alert('撤销失败: ' + data.message);
+                }
+            } catch (error) {
+                alert('撤销失败: ' + error.message);
+            } finally {
+                discardBtn.disabled = false;
+            }
+        });
 
         function initYearMonth() {
             const currentYear = new Date().getFullYear();
@@ -398,6 +467,7 @@
                 addLog('导入完成!', 'success');
                 enableForm();
                 closeWebSocket();
+                loadLedgerStatus();
             }
 
             if (status === 'error') {
