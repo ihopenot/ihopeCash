@@ -8,7 +8,7 @@ Backend module for IhopeCash - 账单管理后端模块
 import os
 import subprocess
 import shutil
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Callable, List
 from config import Config
 
 # 进度回调类型定义
@@ -80,7 +80,7 @@ class BillManager:
             raise Exception(f"bean-file 归档失败: {result.stderr}")
         return result.stdout
     
-    def download_bills(self):
+    def download_bills(self, passwords = []):
         """下载邮件账单
         
         Raises:
@@ -90,6 +90,7 @@ class BillManager:
             from mail import DownloadFiles
             # 传入配置字典
             config_dict = self.config.to_dict()
+            config_dict["passwords"] = passwords
             DownloadFiles(config_dict)
         except Exception as e:
             raise Exception(f"下载账单失败: {str(e)}")
@@ -256,6 +257,7 @@ include "total.bean"
         month: str, 
         balances: Dict[str, str],
         mode: str,  # "normal", "force", "append"
+        passwords: List[str],
         progress_callback: Optional[ProgressCallback] = None
     ) -> Dict:
         """带进度回调的完整导入流程
@@ -285,7 +287,7 @@ include "total.bean"
         try:
             # 1. 下载邮件账单
             send_progress(1, "download", "running", "正在下载邮件账单...")
-            self.download_bills()
+            self.download_bills(passwords)
             # 统计下载的文件数
             import glob
             files_count = len(glob.glob(f"{self.rawdata_path}/*"))

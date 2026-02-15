@@ -2,9 +2,9 @@
 FastAPI 主应用 - IhopeCash Web 界面
 """
 
-from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, List, Any, Optional
@@ -41,6 +41,53 @@ if warnings:
     for warning in warnings:
         print(f"  - {warning}")
     print()
+
+if config.setup_required:
+    print("📋 首次运行，需要完成配置引导")
+    print()
+
+
+# ==================== 引导拦截中间件 ====================
+
+# 引导模式下允许通过的路径前缀
+_SETUP_ALLOWED_PREFIXES = (
+    "/login",
+    "/api/auth/login",
+    "/setup",
+    "/api/setup/",
+    "/api/ledger/accounts",
+    "/static/",
+)
+
+
+@app.middleware("http")
+async def check_setup_middleware(request: Request, call_next):
+    """引导拦截中间件
+    
+    setup_required 为 True 时，仅允许引导相关路径通过，其他重定向到 /setup。
+    setup_required 为 False 时，/setup 和 /api/setup/* 路径重定向到 / 或返回 403。
+    """
+    path = request.url.path
+    
+    if config.setup_required:
+        # 引导模式：只允许特定路径
+        allowed = any(path.startswith(prefix) for prefix in _SETUP_ALLOWED_PREFIXES)
+        if not allowed:
+            return RedirectResponse(url="/setup", status_code=302)
+    else:
+        # 正常模式：/setup 页面重定向到首页
+        if path == "/setup":
+            return RedirectResponse(url="/", status_code=302)
+        # /api/setup/complete 在正常模式下返回 403
+        if path == "/api/setup/complete":
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "配置引导已完成，无法再次执行"}
+            )
+    
+    response = await call_next(request)
+    return response
+
 
 # ==================== 启动事件 ====================
 
@@ -123,6 +170,81 @@ class CloseAccountRequest(BaseModel):
     """关闭账户请求"""
     account_name: str  # 完整账户名，如 Assets:BoC:Card:1234
     date: str = ""  # 关闭日期，留空默认当天
+
+
+class SetupCompleteRequest(BaseModel):
+    """引导完成请求"""
+    config: Dict[str, Any]
+    new_accounts: List[Dict[str, str]] = []
+
+
+# ==================== 引导 API ====================
+
+@app.get("/setup")
+async def setup_page():
+    """引导页面"""
+    return FileResponse("web/static/setup.html")
+
+
+@app.get("/api/setup/status")
+async def get_setup_status():
+    """获取引导状态（无需认证）
+    
+    Returns:
+        { setup_required: bool }
+    """
+    return {"setup_required": config.setup_required}
+
+
+@app.get("/api/setup/defaults")
+async def get_setup_defaults(user: dict = Depends(get_current_user)):
+    """获取引导默认配置（需认证）
+    
+    Returns:
+        包含所有导入器和交易摘要过滤默认值的配置
+    """
+    return config.get_setup_defaults()
+
+
+@app.post("/api/setup/complete")
+async def complete_setup(
+    request: SetupCompleteRequest,
+    user: dict = Depends(get_current_user)
+):
+    """完成配置引导（需认证）
+    
+    一次性写入所有配置和新增账户。
+    
+    Args:
+        request: 包含 config 和 new_accounts
+        
+    Returns:
+        操作结果
+    """
+    if not config.setup_required:
+        raise HTTPException(status_code=403, detail="配置引导已完成，无法再次执行")
+    
+    # 校验 new_accounts 中的账户名合法性
+    for acc in request.new_accounts:
+        account_type = acc.get("account_type", "")
+        path = acc.get("path", "").strip()
+        
+        if account_type not in VALID_ACCOUNT_TYPES:
+            raise HTTPException(status_code=400, detail=f"无效的账户类型: {account_type}")
+        
+        if not path:
+            raise HTTPException(status_code=400, detail="账户路径不能为空")
+        
+        # 校验路径格式
+        error = _validate_account_path(path)
+        if error:
+            raise HTTPException(status_code=400, detail=f"账户 {account_type}:{path} 格式错误: {error}")
+    
+    try:
+        config.complete_setup(request.config, request.new_accounts)
+        return {"success": True, "message": "配置完成"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"配置写入失败: {str(e)}")
 
 
 # ==================== API 端点 ====================
@@ -363,6 +485,36 @@ def _get_accounts_bean_path() -> str:
     return os.path.join(config.data_path, "accounts.bean")
 
 
+def _validate_account_path(path: str) -> Optional[str]:
+    """校验账户路径格式
+    
+    Args:
+        path: 账户路径（不含类型前缀）
+        
+    Returns:
+        错误信息，None 表示通过
+    """
+    if not path:
+        return "账户路径不能为空"
+    if path.startswith(":") or path.endswith(":"):
+        return "路径格式不正确"
+    if "::" in path:
+        return "路径格式不正确"
+    
+    segments = path.split(":")
+    first_segment = segments[0]
+    if not re.match(r'^[A-Z0-9]', first_segment):
+        return "账户路径的第一段必须以大写字母或数字开头"
+    
+    for i, segment in enumerate(segments[1:], start=2):
+        if not segment:
+            continue
+        if re.match(r'^[a-z]', segment):
+            return f"账户路径第{i}段 \"{segment}\" 不能以小写字母开头"
+    
+    return None
+
+
 def _parse_ledger_info() -> dict:
     """使用 beancount.loader 解析账本信息
     
@@ -570,30 +722,11 @@ async def add_ledger_account(
     if request.account_type not in VALID_ACCOUNT_TYPES:
         raise HTTPException(status_code=400, detail="无效的账户类型")
     
-    # 校验路径不为空
+    # 校验路径
     path = request.path.strip()
-    if not path:
-        raise HTTPException(status_code=400, detail="账户路径不能为空")
-    
-    # 校验路径格式
-    if path.startswith(":") or path.endswith(":"):
-        raise HTTPException(status_code=400, detail="路径格式不正确")
-    if "::" in path:
-        raise HTTPException(status_code=400, detail="路径格式不正确")
-    
-    # 校验路径各段命名规则
-    # 第一段（即完整账户名的第二级）必须以大写字母或数字开头
-    # 后续每一段不能以小写字母开头（大写字母、数字、中文均可）
-    segments = path.split(":")
-    first_segment = segments[0]
-    if not re.match(r'^[A-Z0-9]', first_segment):
-        raise HTTPException(status_code=400, detail="账户路径的第一段必须以大写字母或数字开头")
-    
-    for i, segment in enumerate(segments[1:], start=2):
-        if not segment:
-            continue
-        if re.match(r'^[a-z]', segment):
-            raise HTTPException(status_code=400, detail=f"账户路径第{i}段 \"{segment}\" 不能以小写字母开头")
+    error = _validate_account_path(path)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
     
     # 构建完整账户名
     full_account = f"{request.account_type}:{path}"

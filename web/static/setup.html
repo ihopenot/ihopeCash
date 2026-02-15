@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>配置引导 - IhopeCash Web</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .step-dot.active { background-color: #2563eb; color: white; }
+        .step-dot.done { background-color: #16a34a; color: white; }
+        .step-dot { background-color: #e5e7eb; color: #6b7280; }
+        .account-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem; }
+        .add-account-form { display: none; }
+        .add-account-form.show { display: block; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 顶部 -->
+    <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6">
+            <div class="flex justify-between items-center h-14">
+                <a href="/" class="text-lg font-bold text-gray-900 tracking-tight">IhopeCash</a>
+                <span class="text-sm text-gray-500">配置引导</span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 py-6">
+        <!-- 步骤指示器 -->
+        <div class="flex items-center justify-center mb-6 flex-wrap gap-1" id="stepIndicator"></div>
+
+        <!-- 消息提示 -->
+        <div id="messageBar" class="hidden rounded-xl p-4 mb-5 transition-all"></div>
+
+        <!-- 步骤容器 -->
+        <div id="stepsContainer"></div>
+
+        <!-- 底部按钮 -->
+        <div class="flex justify-between mt-6">
+            <button id="prevBtn" class="px-6 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition hidden">上一步</button>
+            <div class="flex-1"></div>
+            <button id="nextBtn" class="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition shadow-sm">下一步</button>
+        </div>
+    </div>
+
+    <!-- 新增账户弹窗 -->
+    <div id="addAccountModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <h3 class="text-base font-semibold text-gray-800 mb-4">新增账户</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">账户类型</label>
+                    <select id="modalAccType" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                        <option value="Assets">Assets (资产)</option>
+                        <option value="Liabilities">Liabilities (负债)</option>
+                        <option value="Income">Income (收入)</option>
+                        <option value="Expenses">Expenses (支出)</option>
+                        <option value="Equity">Equity (权益)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">账户路径</label>
+                    <input type="text" id="modalAccPath" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" placeholder="例如 BoC:Card:1234">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">货币（留空支持所有）</label>
+                    <input type="text" id="modalAccCurrency" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" placeholder="CNY">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">备注</label>
+                    <input type="text" id="modalAccComment" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" placeholder="描述信息">
+                </div>
+                <div id="modalAccPreview" class="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-mono text-gray-600 hidden"></div>
+                <p id="modalAccError" class="text-xs text-red-500 hidden"></p>
+            </div>
+            <div class="flex justify-end gap-3 mt-4">
+                <button id="modalAccCancel" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition">取消</button>
+                <button id="modalAccConfirm" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition text-sm">确认新增</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ==================== 全局状态 ====================
+    const STEPS = [
+        { title: '邮箱配置', key: 'email' },
+        { title: '通用账户', key: 'general' },
+        { title: '支付宝', key: 'alipay' },
+        { title: '微信', key: 'wechat' },
+        { title: '清华饭卡', key: 'thu_ecard' },
+        { title: 'HSBC HK', key: 'hsbc_hk' },
+        { title: '交易摘要过滤', key: 'narration_filter' },
+        { title: '卡号账户映射', key: 'card_accounts' },
+        { title: '交易匹配规则', key: 'detail_mappings' },
+        { title: '余额账户', key: 'balance_accounts' },
+        { title: '确认', key: 'confirm' }
+    ];
+
+    let currentStep = 0;
+    let maxReachedStep = 0;
+    let tempAccounts = [];
+    let serverAccounts = [];
+    let defaults = {};
+    let setupConfig = {};
+    let pendingSelectId = null; // 新增账户后自动选中的目标 select ID
+
+    const ACCOUNT_TYPES = ['Assets', 'Liabilities', 'Income', 'Expenses', 'Equity'];
+
+    // ==================== 认证 ====================
+    function checkAuth() {
+        const token = localStorage.getItem('auth_token');
+        if (!token) { window.location.href = '/login'; return false; }
+        return true;
+    }
+    function getAuthHeaders() {
+        return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` };
+    }
+
+    // ==================== 消息 ====================
+    function showMessage(text, type = 'success') {
+        const bar = document.getElementById('messageBar');
+        bar.className = type === 'success'
+            ? 'rounded-xl p-4 mb-5 bg-green-50 border border-green-200 text-green-800 text-sm'
+            : 'rounded-xl p-4 mb-5 bg-red-50 border border-red-200 text-red-800 text-sm';
+        bar.textContent = text;
+        bar.classList.remove('hidden');
+        setTimeout(() => bar.classList.add('hidden'), 4000);
+    }
+
+    // ==================== 账户工具 ====================
+    function getAllAccounts() {
+        const all = [];
+        // Server accounts (flat list)
+        for (const type of ACCOUNT_TYPES) {
+            for (const acc of (serverAccounts[type] || [])) {
+                if (acc.status === 'open') all.push(acc.name);
+            }
+        }
+        // Temp accounts
+        for (const acc of tempAccounts) {
+            const fullName = `${acc.account_type}:${acc.path}`;
+            if (!all.includes(fullName)) all.push(fullName);
+        }
+        return all.sort();
+    }
+
+    function renderAccountSelect(id, value = '', label = '') {
+        const accounts = getAllAccounts();
+        const options = accounts.map(a => `<option value="${a}" ${a === value ? 'selected' : ''}>${a}</option>`).join('');
+        return `
+            <div class="flex items-center gap-2">
+                <div class="flex-1">
+                    ${label ? `<label class="block text-sm font-medium text-gray-600 mb-1">${label}</label>` : ''}
+                    <select id="${id}" class="account-select w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                        <option value="">-- 请选择账户 --</option>
+                        ${options}
+                    </select>
+                </div>
+                <button type="button" class="add-acc-btn mt-${label ? '6' : '0'} text-sm text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap" data-target="${id}">+ 新增</button>
+            </div>
+        `;
+    }
+
+    function refreshAllSelects() {
+        const accounts = getAllAccounts();
+        document.querySelectorAll('.account-select').forEach(sel => {
+            const currentVal = sel.value;
+            const options = ['<option value="">-- 请选择账户 --</option>'];
+            for (const a of accounts) {
+                options.push(`<option value="${a}" ${a === currentVal ? 'selected' : ''}>${a}</option>`);
+            }
+            sel.innerHTML = options.join('');
+        });
+    }
+
+    function validateAccountPath(path) {
+        if (!path) return '账户路径不能为空';
+        if (path.startsWith(':') || path.endsWith(':')) return '路径格式不正确';
+        if (path.includes('::')) return '路径格式不正确';
+        const segments = path.split(':');
+        if (!/^[A-Z0-9]/.test(segments[0])) return '第一段必须以大写字母或数字开头';
+        for (let i = 1; i < segments.length; i++) {
+            if (/^[a-z]/.test(segments[i])) return `第${i+1}段 "${segments[i]}" 不能以小写字母开头`;
+        }
+        return null;
+    }
+
+    // ==================== 新增账户弹窗 ====================
+    function openAddAccountModal(targetSelectId) {
+        pendingSelectId = targetSelectId;
+        document.getElementById('modalAccType').value = 'Assets';
+        document.getElementById('modalAccPath').value = '';
+        document.getElementById('modalAccCurrency').value = '';
+        document.getElementById('modalAccComment').value = '';
+        document.getElementById('modalAccPreview').classList.add('hidden');
+        document.getElementById('modalAccError').classList.add('hidden');
+        document.getElementById('addAccountModal').classList.remove('hidden');
+    }
+
+    document.getElementById('modalAccCancel').addEventListener('click', () => {
+        document.getElementById('addAccountModal').classList.add('hidden');
+    });
+    document.getElementById('addAccountModal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) document.getElementById('addAccountModal').classList.add('hidden');
+    });
+
+    ['modalAccType', 'modalAccPath', 'modalAccCurrency', 'modalAccComment'].forEach(id => {
+        document.getElementById(id).addEventListener('input', () => {
+            const type = document.getElementById('modalAccType').value;
+            const path = document.getElementById('modalAccPath').value.trim();
+            const currency = document.getElementById('modalAccCurrency').value.trim();
+            const comment = document.getElementById('modalAccComment').value.trim();
+            const preview = document.getElementById('modalAccPreview');
+            if (!path) { preview.classList.add('hidden'); return; }
+            const currPart = currency ? ` ${currency}` : '';
+            const commPart = comment ? ` ; ${comment}` : '';
+            preview.textContent = `1999-01-01 open ${type}:${path}${currPart}${commPart}`;
+            preview.classList.remove('hidden');
+        });
+    });
+
+    document.getElementById('modalAccConfirm').addEventListener('click', () => {
+        const type = document.getElementById('modalAccType').value;
+        const path = document.getElementById('modalAccPath').value.trim();
+        const currency = document.getElementById('modalAccCurrency').value.trim();
+        const comment = document.getElementById('modalAccComment').value.trim();
+        const errorEl = document.getElementById('modalAccError');
+
+        const err = validateAccountPath(path);
+        if (err) { errorEl.textContent = err; errorEl.classList.remove('hidden'); return; }
+
+        const fullName = `${type}:${path}`;
+        // 去重检查
+        if (getAllAccounts().includes(fullName)) {
+            errorEl.textContent = '该账户已存在'; errorEl.classList.remove('hidden'); return;
+        }
+
+        tempAccounts.push({ account_type: type, path, currencies: currency, comment });
+        refreshAllSelects();
+
+        // 自动选中
+        if (pendingSelectId) {
+            const sel = document.getElementById(pendingSelectId);
+            if (sel) sel.value = fullName;
+        }
+
+        document.getElementById('addAccountModal').classList.add('hidden');
+    });
+
+    // 事件委托: 新增按钮
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('add-acc-btn')) {
+            openAddAccountModal(e.target.dataset.target);
+        }
+    });
+
+    // ==================== 步骤渲染 ====================
+    function renderStepIndicator() {
+        const container = document.getElementById('stepIndicator');
+        container.innerHTML = STEPS.map((s, i) => {
+            let cls = 'step-dot';
+            if (i === currentStep) cls += ' active';
+            else if (i <= maxReachedStep) cls += ' done';
+            const clickable = i <= maxReachedStep;
+            return `<div class="flex items-center">
+                <div class="${cls} w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${clickable ? 'cursor-pointer' : 'cursor-default opacity-60'}" data-step="${i}">${i + 1}</div>
+                ${i < STEPS.length - 1 ? `<div class="w-4 h-0.5 ${i < maxReachedStep ? 'bg-green-300' : 'bg-gray-200'} mx-0.5"></div>` : ''}
+            </div>`;
+        }).join('');
+
+        container.querySelectorAll('.step-dot').forEach(dot => {
+            dot.addEventListener('click', () => {
+                const step = parseInt(dot.dataset.step);
+                if (step <= maxReachedStep && step !== currentStep) {
+                    if (saveFns[currentStep]) saveFns[currentStep]();
+                    currentStep = step;
+                    renderCurrentStep();
+                    if (currentStep === 7) setTimeout(bindCardAccountValidation, 0);
+                }
+            });
+        });
+    }
+
+    function renderCurrentStep() {
+        renderStepIndicator();
+        const container = document.getElementById('stepsContainer');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+
+        prevBtn.classList.toggle('hidden', currentStep === 0);
+        if (currentStep === STEPS.length - 1) {
+            nextBtn.textContent = '确认并完成配置';
+            nextBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            nextBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+        } else {
+            nextBtn.textContent = '下一步';
+            nextBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+            nextBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+        }
+
+        const renderers = [
+            renderStep1_Email, renderStep2_General, renderStep3_Alipay, renderStep4_Wechat,
+            renderStep5_ThuEcard, renderStep6_HsbcHk, renderStep7_NarrationFilter,
+            renderStep8_CardAccounts, renderStep9_DetailMappings, renderStep10_BalanceAccounts,
+            renderStep11_Confirm
+        ];
+        container.innerHTML = `<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <h2 class="text-lg font-semibold text-gray-800 mb-1">Step ${currentStep + 1}: ${STEPS[currentStep].title}</h2>
+            <p class="text-xs text-gray-400 mb-4">第 ${currentStep + 1} 步，共 ${STEPS.length} 步</p>
+            <div id="stepContent">${renderers[currentStep]()}</div>
+        </div>`;
+    }
+
+    // ==================== Step 1: 邮箱配置 ====================
+    function renderStep1_Email() {
+        const email = setupConfig.email || {};
+        const imap = email.imap || {};
+        return `<div class="grid grid-cols-2 gap-4">
+            <div><label class="block text-sm font-medium text-gray-600 mb-1">IMAP 服务器</label>
+            <input type="text" id="s1_host" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${imap.host || 'imap.qq.com'}"></div>
+            <div><label class="block text-sm font-medium text-gray-600 mb-1">端口</label>
+            <input type="number" id="s1_port" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${imap.port || 993}"></div>
+            <div><label class="block text-sm font-medium text-gray-600 mb-1">用户名</label>
+            <input type="text" id="s1_username" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${imap.username || ''}"></div>
+            <div><label class="block text-sm font-medium text-gray-600 mb-1">密码</label>
+            <input type="password" id="s1_password" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${imap.password || ''}"></div>
+            <div class="col-span-2"><label class="block text-sm font-medium text-gray-600 mb-1">邮箱文件夹</label>
+            <input type="text" id="s1_mailbox" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${imap.mailbox || 'Bills'}"></div>
+        </div>`;
+    }
+    function saveStep1() {
+        setupConfig.email = { imap: {
+            host: document.getElementById('s1_host').value.trim(),
+            port: parseInt(document.getElementById('s1_port').value) || 993,
+            username: document.getElementById('s1_username').value.trim(),
+            password: document.getElementById('s1_password').value,
+            mailbox: document.getElementById('s1_mailbox').value.trim()
+        }};
+    }
+
+    // ==================== Step 2: 通用账户 ====================
+    function renderStep2_General() {
+        return `<div class="space-y-4">
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-blue-800">
+                所有未分类的交易和支出都会汇总到这两个账户。请确保它们已正确设置。
+            </div>
+            ${renderAccountSelect('s2_expense', setupConfig.unknown_expense_account || defaults.unknown_expense_account || '', '默认支出账户')}
+            ${renderAccountSelect('s2_income', setupConfig.unknown_income_account || defaults.unknown_income_account || '', '默认收入账户')}
+        </div>`;
+    }
+    function saveStep2() {
+        setupConfig.unknown_expense_account = document.getElementById('s2_expense').value;
+        setupConfig.unknown_income_account = document.getElementById('s2_income').value;
+    }
+
+    // ==================== Step 3: 支付宝 ====================
+    function renderStep3_Alipay() {
+        const a = setupConfig.importers?.alipay || defaults.importers?.alipay || {};
+        const fields = [
+            ['s3_account', 'account', '主账户'],
+            ['s3_huabei', 'huabei_account', '花呗账户'],
+            ['s3_douyin', 'douyin_monthly_payment_account', '抖音月付账户'],
+            ['s3_yuebao', 'yuebao_account', '余额宝账户'],
+            ['s3_rp_income', 'red_packet_income_account', '红包收入账户'],
+            ['s3_rp_expense', 'red_packet_expense_account', '红包支出账户']
+        ];
+        return `<div class="space-y-4">
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
+                如果需要导入支付宝账单，务必保证以下所有账户都已设置，否则导入时可能失败。
+            </div>
+            ${fields.map(([id, key, label]) => renderAccountSelect(id, a[key] || '', label)).join('')}
+        </div>`;
+    }
+    function saveStep3() {
+        if (!setupConfig.importers) setupConfig.importers = {};
+        setupConfig.importers.alipay = {
+            account: document.getElementById('s3_account').value,
+            huabei_account: document.getElementById('s3_huabei').value,
+            douyin_monthly_payment_account: document.getElementById('s3_douyin').value,
+            yuebao_account: document.getElementById('s3_yuebao').value,
+            red_packet_income_account: document.getElementById('s3_rp_income').value,
+            red_packet_expense_account: document.getElementById('s3_rp_expense').value,
+            category_mapping: setupConfig.importers?.alipay?.category_mapping || {}
+        };
+    }
+
+    // ==================== Step 4: 微信 ====================
+    function renderStep4_Wechat() {
+        const w = setupConfig.importers?.wechat || defaults.importers?.wechat || {};
+        const fields = [
+            ['s4_account', 'account', '主账户'],
+            ['s4_lingqiantong', 'lingqiantong_account', '零钱通账户'],
+            ['s4_rp_income', 'red_packet_income_account', '红包收入账户'],
+            ['s4_rp_expense', 'red_packet_expense_account', '红包支出账户'],
+            ['s4_family', 'family_card_expense_account', '亲属卡支出账户'],
+            ['s4_group_expense', 'group_payment_expense_account', '群收款支出账户'],
+            ['s4_group_income', 'group_payment_income_account', '群收款收入账户'],
+            ['s4_transfer_expense', 'transfer_expense_account', '转账支出账户'],
+            ['s4_transfer_income', 'transfer_income_account', '转账收入账户']
+        ];
+        return `<div class="space-y-4">
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
+                如果需要导入微信账单，务必保证以下所有账户都已设置，否则导入时可能失败。
+            </div>
+            ${fields.map(([id, key, label]) => renderAccountSelect(id, w[key] || '', label)).join('')}
+        </div>`;
+    }
+    function saveStep4() {
+        if (!setupConfig.importers) setupConfig.importers = {};
+        setupConfig.importers.wechat = {
+            account: document.getElementById('s4_account').value,
+            lingqiantong_account: document.getElementById('s4_lingqiantong').value,
+            red_packet_income_account: document.getElementById('s4_rp_income').value,
+            red_packet_expense_account: document.getElementById('s4_rp_expense').value,
+            family_card_expense_account: document.getElementById('s4_family').value,
+            group_payment_expense_account: document.getElementById('s4_group_expense').value,
+            group_payment_income_account: document.getElementById('s4_group_income').value,
+            transfer_expense_account: document.getElementById('s4_transfer_expense').value,
+            transfer_income_account: document.getElementById('s4_transfer_income').value
+        };
+    }
+
+    // ==================== Step 5: 清华饭卡 ====================
+    function renderStep5_ThuEcard() {
+        const t = setupConfig.importers?.thu_ecard || defaults.importers?.thu_ecard || {};
+        return `<div class="space-y-4">
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
+                如果需要导入清华饭卡账单，务必保证账户已设置，否则导入时可能失败。
+            </div>
+            ${renderAccountSelect('s5_account', t.account || '', '账户')}
+        </div>`;
+    }
+    function saveStep5() {
+        if (!setupConfig.importers) setupConfig.importers = {};
+        setupConfig.importers.thu_ecard = { account: document.getElementById('s5_account').value };
+    }
+
+    // ==================== Step 6: HSBC HK ====================
+    function renderStep6_HsbcHk() {
+        const h = setupConfig.importers?.hsbc_hk || defaults.importers?.hsbc_hk || {};
+        const mapping = h.account_mapping || {};
+        return `<div class="space-y-4">
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
+                如果需要导入 HSBC HK 账单，务必保证以下所有账户都已设置，否则导入时可能失败。
+            </div>
+            <div class="flex items-center gap-2">
+                <input type="checkbox" id="s6_use_cnh" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" ${h.use_cnh ? 'checked' : ''}>
+                <label class="text-sm text-gray-600" for="s6_use_cnh">使用离岸人民币 (use_cnh)</label>
+            </div>
+            ${renderAccountSelect('s6_one', mapping.One || '', 'One 账户')}
+            ${renderAccountSelect('s6_pulse', mapping.PULSE || '', 'PULSE 账户')}
+        </div>`;
+    }
+    function saveStep6() {
+        if (!setupConfig.importers) setupConfig.importers = {};
+        setupConfig.importers.hsbc_hk = {
+            use_cnh: document.getElementById('s6_use_cnh').checked,
+            account_mapping: {
+                One: document.getElementById('s6_one').value,
+                PULSE: document.getElementById('s6_pulse').value
+            }
+        };
+    }
+
+    // ==================== Step 7: 交易摘要过滤 ====================
+    function renderStep7_NarrationFilter() {
+        const imp = setupConfig.importers || defaults.importers || {};
+        const wl = imp.card_narration_whitelist || defaults.importers?.card_narration_whitelist || [];
+        const bl = imp.card_narration_blacklist || defaults.importers?.card_narration_blacklist || [];
+        return `<div class="space-y-5">
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-blue-800">
+                黑名单用于过滤银行卡账单中来自其他支付方式（如支付宝、微信）的交易，避免同时导入银行卡和其他支付方式账单时产生重复记录。
+            </div>
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <label class="text-sm font-medium text-gray-600">白名单（这些摘要的银行卡交易会被保留）</label>
+                    <button type="button" class="text-sm text-blue-600 hover:text-blue-700 font-medium" onclick="addFilterRow('s7_whitelist')">+ 添加</button>
+                </div>
+                <div id="s7_whitelist" class="space-y-2">${wl.map(v => filterRowHtml(v)).join('')}</div>
+            </div>
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <label class="text-sm font-medium text-gray-600">黑名单（这些摘要的银行卡交易会被过滤）</label>
+                    <button type="button" class="text-sm text-blue-600 hover:text-blue-700 font-medium" onclick="addFilterRow('s7_blacklist')">+ 添加</button>
+                </div>
+                <div id="s7_blacklist" class="space-y-2">${bl.map(v => filterRowHtml(v)).join('')}</div>
+            </div>
+        </div>`;
+    }
+    function filterRowHtml(value = '') {
+        return `<div class="flex items-center gap-2">
+            <input type="text" class="filter-item flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${value}">
+            <button type="button" class="text-gray-400 hover:text-red-500 transition p-1" onclick="this.parentElement.remove()">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>`;
+    }
+    function addFilterRow(containerId) {
+        document.getElementById(containerId).insertAdjacentHTML('beforeend', filterRowHtml());
+    }
+    function saveStep7() {
+        if (!setupConfig.importers) setupConfig.importers = {};
+        setupConfig.importers.card_narration_whitelist = collectFilterList('s7_whitelist');
+        setupConfig.importers.card_narration_blacklist = collectFilterList('s7_blacklist');
+    }
+    function collectFilterList(containerId) {
+        return Array.from(document.querySelectorAll(`#${containerId} .filter-item`)).map(el => el.value.trim()).filter(Boolean);
+    }
+
+    // ==================== Step 8: 卡号账户映射 ====================
+    function renderStep8_CardAccounts() {
+        const ca = setupConfig.card_accounts || defaults.card_accounts || {};
+        let rows = '';
+        for (const [topType, midObj] of Object.entries(ca)) {
+            if (typeof midObj !== 'object') continue;
+            for (const [midName, suffixes] of Object.entries(midObj)) {
+                if (!Array.isArray(suffixes)) continue;
+                for (const suffix of suffixes) {
+                    rows += cardAccountRowHtml(topType, midName.replace(/:$/, ''), suffix);
+                }
+            }
+        }
+        return `<div class="space-y-3">
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
+                导入账单时会根据卡号后四位自动将交易分类到对应的账户。请确保账单中涉及的所有银行卡卡号都有对应的映射，否则导入时可能失败。
+            </div>
+            <div id="s8_rows">${rows}</div>
+            <button type="button" class="text-sm text-blue-600 hover:text-blue-700 font-medium" onclick="addCardAccountRow()">+ 添加映射</button>
+        </div>`;
+    }
+    function cardAccountRowHtml(type = 'Assets', mid = '', suffix = '') {
+        const typeOptions = ACCOUNT_TYPES.map(t => `<option value="${t}" ${t === type ? 'selected' : ''}>${t}</option>`).join('');
+        return `<div class="card-acc-row border border-gray-200 rounded-lg p-3 space-y-2">
+            <div class="grid grid-cols-3 gap-2">
+                <div><label class="block text-xs text-gray-500 mb-1">分类</label>
+                <select class="ca-type w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm bg-white">${typeOptions}</select></div>
+                <div><label class="block text-xs text-gray-500 mb-1">中间名称</label>
+                <input type="text" class="ca-mid w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm" value="${mid}" placeholder="如 BOC:Card"></div>
+                <div><label class="block text-xs text-gray-500 mb-1">4位字符</label>
+                <input type="text" class="ca-suffix w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm" value="${suffix}" maxlength="4" placeholder="如 1234"></div>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="ca-preview text-xs font-mono text-gray-500"></span>
+                <button type="button" class="text-xs text-red-500 hover:text-red-700" onclick="this.closest('.card-acc-row').remove()">删除</button>
+            </div>
+            <p class="ca-error text-xs text-red-500 hidden"></p>
+        </div>`;
+    }
+    function addCardAccountRow() {
+        document.getElementById('s8_rows').insertAdjacentHTML('beforeend', cardAccountRowHtml());
+        bindCardAccountValidation();
+    }
+    function bindCardAccountValidation() {
+        document.querySelectorAll('.card-acc-row').forEach(row => {
+            const inputs = row.querySelectorAll('.ca-type, .ca-mid, .ca-suffix');
+            inputs.forEach(input => {
+                input.removeEventListener('input', validateCardRow);
+                input.addEventListener('input', validateCardRow);
+            });
+            validateCardRowEl(row);
+        });
+    }
+    function validateCardRow(e) { validateCardRowEl(e.target.closest('.card-acc-row')); }
+    function validateCardRowEl(row) {
+        const type = row.querySelector('.ca-type').value;
+        const mid = row.querySelector('.ca-mid').value.trim();
+        const suffix = row.querySelector('.ca-suffix').value.trim();
+        const preview = row.querySelector('.ca-preview');
+        const errorEl = row.querySelector('.ca-error');
+        errorEl.classList.add('hidden');
+
+        if (!mid && !suffix) { preview.textContent = ''; return; }
+
+        // Validate suffix
+        if (suffix && suffix.length !== 4) { errorEl.textContent = '必须为4位字符'; errorEl.classList.remove('hidden'); }
+        else if (suffix && !/^[A-Z0-9]{4}$/.test(suffix)) { errorEl.textContent = '只允许数字和大写字母'; errorEl.classList.remove('hidden'); }
+
+        // Validate mid segments
+        if (mid) {
+            const segs = mid.split(':').filter(Boolean);
+            for (const seg of segs) {
+                if (/^[a-z]/.test(seg)) { errorEl.textContent = `"${seg}" 不能以小写字母开头`; errorEl.classList.remove('hidden'); break; }
+            }
+        }
+
+        // Build preview
+        const midPart = mid ? (mid.endsWith(':') ? mid : mid + ':') : '';
+        const full = `${type}:${midPart}${suffix}`;
+        preview.textContent = (mid || suffix) ? `预览: ${full}` : '';
+    }
+    function saveStep8() {
+        const result = {};
+        document.querySelectorAll('.card-acc-row').forEach(row => {
+            const type = row.querySelector('.ca-type').value;
+            const mid = row.querySelector('.ca-mid').value.trim();
+            const suffix = row.querySelector('.ca-suffix').value.trim();
+            if (!mid || !suffix) return;
+            const midKey = mid.endsWith(':') ? mid : mid + ':';
+            if (!result[type]) result[type] = {};
+            if (!result[type][midKey]) result[type][midKey] = [];
+            result[type][midKey].push(suffix);
+        });
+        setupConfig.card_accounts = result;
+    }
+
+    // ==================== Step 9: 交易匹配规则 ====================
+    function renderStep9_DetailMappings() {
+        const mappings = setupConfig.detail_mappings || [];
+        let rows = mappings.map(m => mappingRowHtml(m)).join('');
+        return `<div class="space-y-3">
+            <p class="text-sm text-gray-500">可选配置，用于自动分类交易。可以跳过，后续在配置页面添加。</p>
+            <div id="s9_rows">${rows}</div>
+            <button type="button" class="text-sm text-blue-600 hover:text-blue-700 font-medium" onclick="addMappingRow()">+ 添加规则</button>
+        </div>`;
+    }
+    function mappingRowHtml(data = {}) {
+        const accVal = data.account || '';
+        return `<div class="mapping-row border border-gray-200 rounded-lg p-3 space-y-2">
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-medium text-gray-700">匹配规则</span>
+                <button type="button" class="text-xs text-red-500 hover:text-red-700" onclick="this.closest('.mapping-row').remove()">删除</button>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div><label class="block text-xs text-gray-500 mb-1">payee_keywords (逗号分隔)</label>
+                <input type="text" class="mp-payee w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm" value="${(data.payee_keywords||[]).join(', ')}"></div>
+                <div><label class="block text-xs text-gray-500 mb-1">narration_keywords (逗号分隔)</label>
+                <input type="text" class="mp-narration w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm" value="${(data.narration_keywords||[]).join(', ')}"></div>
+                <div>${renderAccountSelect('mp_acc_' + Date.now() + Math.random().toString(36).slice(2, 6), accVal, 'account')}</div>
+                <div><label class="block text-xs text-gray-500 mb-1">tags (逗号分隔)</label>
+                <input type="text" class="mp-tags w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm" value="${(data.tags||[]).join(', ')}"></div>
+            </div>
+        </div>`;
+    }
+    function addMappingRow() {
+        document.getElementById('s9_rows').insertAdjacentHTML('beforeend', mappingRowHtml());
+    }
+    function saveStep9() {
+        const mappings = [];
+        document.querySelectorAll('.mapping-row').forEach(row => {
+            const payee = row.querySelector('.mp-payee').value.split(',').map(s => s.trim()).filter(Boolean);
+            const narration = row.querySelector('.mp-narration').value.split(',').map(s => s.trim()).filter(Boolean);
+            const accSelect = row.querySelector('.account-select');
+            const account = accSelect ? accSelect.value : '';
+            const tags = row.querySelector('.mp-tags').value.split(',').map(s => s.trim()).filter(Boolean);
+            if (account || payee.length || narration.length) {
+                mappings.push({ payee_keywords: payee, narration_keywords: narration, account, tags });
+            }
+        });
+        setupConfig.detail_mappings = mappings;
+    }
+
+    // ==================== Step 10: 余额账户 ====================
+    function renderStep10_BalanceAccounts() {
+        const accounts = setupConfig.balance_accounts || [];
+        let rows = accounts.map((a, i) => balanceAccountRowHtml(a, i)).join('');
+        return `<div class="space-y-3">
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-blue-800">
+                这些账户会在账单导入结束时与实际余额进行比对。如果余额不匹配，说明账单上可能有错记或漏记。
+            </div>
+            <div id="s10_rows">${rows}</div>
+            <button type="button" class="text-sm text-blue-600 hover:text-blue-700 font-medium" onclick="addBalanceAccountRow()">+ 添加余额账户</button>
+        </div>`;
+    }
+    function balanceAccountRowHtml(value = '', idx = 0) {
+        const id = 's10_acc_' + Date.now() + '_' + idx;
+        return `<div class="balance-acc-row flex items-center gap-2">
+            <div class="flex-1">
+                <select id="${id}" class="account-select w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                    <option value="">-- 请选择账户 --</option>
+                    ${getAllAccounts().map(a => `<option value="${a}" ${a === value ? 'selected' : ''}>${a}</option>`).join('')}
+                </select>
+            </div>
+            <button type="button" class="add-acc-btn text-sm text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap" data-target="${id}">+ 新增</button>
+            <button type="button" class="text-gray-400 hover:text-red-500 transition p-1" onclick="this.closest('.balance-acc-row').remove()">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>`;
+    }
+    function addBalanceAccountRow() {
+        const idx = document.querySelectorAll('.balance-acc-row').length;
+        document.getElementById('s10_rows').insertAdjacentHTML('beforeend', balanceAccountRowHtml('', idx));
+    }
+    function saveStep10() {
+        setupConfig.balance_accounts = Array.from(document.querySelectorAll('.balance-acc-row .account-select'))
+            .map(sel => sel.value).filter(Boolean);
+    }
+
+    // ==================== Step 11: 确认页 ====================
+    function renderStep11_Confirm() {
+        const sections = [];
+
+        // 邮箱
+        const imap = setupConfig.email?.imap || {};
+        sections.push({ step: 0, title: '邮箱配置', content: `${imap.host || '-'}:${imap.port || '-'} / ${imap.username || '-'} / ${imap.mailbox || '-'}` });
+
+        // 通用
+        sections.push({ step: 1, title: '通用账户', content: `支出: ${setupConfig.unknown_expense_account || '-'}<br>收入: ${setupConfig.unknown_income_account || '-'}` });
+
+        // 支付宝
+        const alipay = setupConfig.importers?.alipay || {};
+        sections.push({ step: 2, title: '支付宝', content: Object.entries(alipay).filter(([k]) => k !== 'category_mapping').map(([k, v]) => `${k}: ${v || '-'}`).join('<br>') });
+
+        // 微信
+        const wechat = setupConfig.importers?.wechat || {};
+        sections.push({ step: 3, title: '微信', content: Object.entries(wechat).map(([k, v]) => `${k}: ${v || '-'}`).join('<br>') });
+
+        // 清华饭卡
+        sections.push({ step: 4, title: '清华饭卡', content: `account: ${setupConfig.importers?.thu_ecard?.account || '-'}` });
+
+        // HSBC HK
+        const hsbc = setupConfig.importers?.hsbc_hk || {};
+        sections.push({ step: 5, title: 'HSBC HK', content: `use_cnh: ${hsbc.use_cnh || false}<br>One: ${hsbc.account_mapping?.One || '-'}<br>PULSE: ${hsbc.account_mapping?.PULSE || '-'}` });
+
+        // 交易摘要过滤
+        const wl = setupConfig.importers?.card_narration_whitelist || [];
+        const bl = setupConfig.importers?.card_narration_blacklist || [];
+        sections.push({ step: 6, title: '交易摘要过滤', content: `白名单: ${wl.join(', ') || '-'}<br>黑名单: ${bl.join(', ') || '-'}` });
+
+        // 卡号映射
+        const ca = setupConfig.card_accounts || {};
+        let caText = '';
+        for (const [t, m] of Object.entries(ca)) {
+            for (const [mid, sfxs] of Object.entries(m)) {
+                for (const s of sfxs) caText += `${t}:${mid}${s}<br>`;
+            }
+        }
+        sections.push({ step: 7, title: '卡号账户映射', content: caText || '-' });
+
+        // 交易匹配规则
+        const dm = setupConfig.detail_mappings || [];
+        sections.push({ step: 8, title: '交易匹配规则', content: dm.length ? `${dm.length} 条规则` : '无规则' });
+
+        // 余额账户
+        const ba = setupConfig.balance_accounts || [];
+        sections.push({ step: 9, title: '余额账户', content: ba.length ? ba.join('<br>') : '-' });
+
+        // 新增账户
+        let newAccHtml = '';
+        if (tempAccounts.length > 0) {
+            newAccHtml = `<div class="border border-blue-200 rounded-lg p-3 bg-blue-50 mt-3">
+                <h4 class="text-sm font-semibold text-blue-800 mb-2">将新增 ${tempAccounts.length} 个账户</h4>
+                <div class="text-xs text-blue-700 font-mono space-y-0.5">${tempAccounts.map(a => `<div>${a.account_type}:${a.path}</div>`).join('')}</div>
+            </div>`;
+        }
+
+        return `<div class="space-y-3">
+            ${sections.map(s => `<div class="border border-gray-200 rounded-lg p-3 flex justify-between items-start">
+                <div class="flex-1 min-w-0">
+                    <h4 class="text-sm font-semibold text-gray-700">${s.title}</h4>
+                    <div class="text-xs text-gray-500 mt-1 font-mono leading-relaxed">${s.content}</div>
+                </div>
+                <button type="button" class="text-xs text-blue-600 hover:text-blue-700 font-medium ml-3 shrink-0" onclick="goToStep(${s.step})">修改</button>
+            </div>`).join('')}
+            ${newAccHtml}
+        </div>`;
+    }
+
+    function goToStep(step) {
+        if (saveFns[currentStep]) saveFns[currentStep]();
+        currentStep = step;
+        renderCurrentStep();
+        if (currentStep === 7) setTimeout(bindCardAccountValidation, 0);
+    }
+
+    // ==================== 保存/导航 ====================
+    const saveFns = [saveStep1, saveStep2, saveStep3, saveStep4, saveStep5, saveStep6, saveStep7, saveStep8, saveStep9, saveStep10, null];
+
+    document.getElementById('nextBtn').addEventListener('click', async () => {
+        // 保存当前步骤
+        if (saveFns[currentStep]) saveFns[currentStep]();
+
+        if (currentStep === STEPS.length - 1) {
+            // 最后一步：提交
+            await submitSetup();
+        } else {
+            currentStep++;
+            if (currentStep > maxReachedStep) maxReachedStep = currentStep;
+            renderCurrentStep();
+            if (currentStep === 7) setTimeout(bindCardAccountValidation, 0);
+        }
+    });
+
+    document.getElementById('prevBtn').addEventListener('click', () => {
+        if (saveFns[currentStep]) saveFns[currentStep]();
+        if (currentStep > 0) { currentStep--; renderCurrentStep(); }
+        if (currentStep === 7) setTimeout(bindCardAccountValidation, 0);
+    });
+
+    async function submitSetup() {
+        // 构建最终配置
+        const finalConfig = {
+            email: setupConfig.email || {},
+            unknown_expense_account: setupConfig.unknown_expense_account || '',
+            unknown_income_account: setupConfig.unknown_income_account || '',
+            importers: setupConfig.importers || {},
+            card_accounts: setupConfig.card_accounts || {},
+            detail_mappings: setupConfig.detail_mappings || [],
+            system: { balance_accounts: setupConfig.balance_accounts || [] }
+        };
+
+        try {
+            const resp = await fetch('/api/setup/complete', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ config: finalConfig, new_accounts: tempAccounts })
+            });
+            const result = await resp.json();
+            if (resp.ok && result.success) {
+                showMessage('配置完成！正在跳转...');
+                setTimeout(() => { window.location.href = '/'; }, 1500);
+            } else {
+                showMessage(result.detail || '配置提交失败', 'error');
+            }
+        } catch (e) {
+            showMessage('提交失败: ' + e.message, 'error');
+        }
+    }
+
+    // ==================== 初始化 ====================
+    async function init() {
+        if (!checkAuth()) return;
+
+        try {
+            // 加载服务端账户和默认配置
+            const [accResp, defResp] = await Promise.all([
+                fetch('/api/ledger/accounts', { headers: getAuthHeaders() }),
+                fetch('/api/setup/defaults', { headers: getAuthHeaders() })
+            ]);
+
+            if (accResp.status === 401 || defResp.status === 401) {
+                localStorage.removeItem('auth_token');
+                window.location.href = '/login';
+                return;
+            }
+
+            const accData = await accResp.json();
+            serverAccounts = accData.accounts || {};
+
+            defaults = await defResp.json();
+
+            // 用默认值初始化 setupConfig
+            setupConfig = JSON.parse(JSON.stringify(defaults));
+            setupConfig.balance_accounts = setupConfig.system?.balance_accounts || [];
+
+            renderCurrentStep();
+        } catch (e) {
+            showMessage('加载配置失败: ' + e.message, 'error');
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

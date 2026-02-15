@@ -199,12 +199,15 @@
                 <div class="space-y-3">
                     <div class="flex items-center gap-2">
                         <input type="checkbox" id="hsbc_use_cnh" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                        <label class="text-sm text-gray-600" for="hsbc_use_cnh">use_cnh</label>
+                        <label class="text-sm text-gray-600" for="hsbc_use_cnh">use_cnh（使用离岸人民币 CNH）</label>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-600 mb-1">account_mapping (JSON)</label>
-                        <textarea id="hsbcAccountMappingJson" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm font-mono" placeholder="{}"></textarea>
-                        <p id="hsbcAccountMappingJsonError" class="text-xs text-red-500 mt-1 hidden">JSON 格式错误</p>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">One 账户</label>
+                        <input type="text" id="hsbc_account_one" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" placeholder="例如 Assets:Bank:HSBC">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">PULSE 账户</label>
+                        <input type="text" id="hsbc_account_pulse" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" placeholder="例如 Liabilities:CreditCards:HSBC:Pulse">
                     </div>
                 </div>
             </div>
@@ -232,10 +235,14 @@
 
             <!-- 卡号账户映射 -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-                <h3 class="text-base font-semibold text-gray-800 mb-2">卡号账户映射 (card_accounts)</h3>
-                <p class="text-xs text-gray-400 mb-3">嵌套结构，请直接编辑 JSON（格式如 {"Assets": {"BoC:Card": ["1234"]}}）</p>
-                <textarea id="cardAccountsJson" rows="6" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm font-mono" placeholder="{}"></textarea>
-                <p id="cardAccountsJsonError" class="text-xs text-red-500 mt-1 hidden">JSON 格式错误</p>
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-base font-semibold text-gray-800">卡号账户映射 (card_accounts)</h3>
+                    <button id="addCardAccountBtn" type="button" class="text-sm text-blue-600 hover:text-blue-700 font-medium">+ 添加映射</button>
+                </div>
+                <p class="text-xs text-gray-400 mb-3">格式：类型:中间名:后四位 → 例如 Assets:BOC:Card:1234</p>
+                <div id="cardAccountRows" class="space-y-3">
+                    <!-- 动态生成 -->
+                </div>
             </div>
 
             <!-- 交易匹配规则 -->
@@ -680,8 +687,13 @@
             renderImporterFields('thu_ecard_fields', configData.importers?.thu_ecard || {});
             renderHsbcFields();
 
-            renderStringList('whitelist_items', configData.importers?.card_narration_whitelist || []);
-            renderStringList('blacklist_items', configData.importers?.card_narration_blacklist || []);
+            const whitelist = configData.importers?.card_narration_whitelist || [];
+            const blacklist = configData.importers?.card_narration_blacklist || [];
+            // Prefill defaults if empty
+            const DEFAULT_WHITELIST = ['财付通(银联云闪付)'];
+            const DEFAULT_BLACKLIST = ['支付宝', '财付通', '美团支付'];
+            renderStringList('whitelist_items', whitelist.length > 0 ? whitelist : DEFAULT_WHITELIST);
+            renderStringList('blacklist_items', blacklist.length > 0 ? blacklist : DEFAULT_BLACKLIST);
 
             renderCardAccounts();
             renderDetailMappings();
@@ -691,6 +703,8 @@
                     addStringListRow(btn.dataset.target);
                 });
             });
+
+            document.getElementById('addCardAccountBtn').addEventListener('click', () => addCardAccountRow());
         }
 
         function renderImporterFields(containerId, data) {
@@ -720,7 +734,8 @@
             const data = configData.importers?.hsbc_hk || {};
             document.getElementById('hsbc_use_cnh').checked = !!data.use_cnh;
             const mapping = data.account_mapping || {};
-            document.getElementById('hsbcAccountMappingJson').value = JSON.stringify(mapping, null, 2);
+            document.getElementById('hsbc_account_one').value = mapping.One || '';
+            document.getElementById('hsbc_account_pulse').value = mapping.PULSE || '';
         }
 
         function renderStringList(containerId, items) {
@@ -744,9 +759,111 @@
         }
 
         function renderCardAccounts() {
-            const textarea = document.getElementById('cardAccountsJson');
+            const container = document.getElementById('cardAccountRows');
+            container.innerHTML = '';
             const data = configData.card_accounts || {};
-            textarea.value = JSON.stringify(data, null, 2);
+            // Flatten nested structure: {category: {middleName: [suffix, ...]}} → rows
+            for (const [category, middleMap] of Object.entries(data)) {
+                for (const [middleName, suffixes] of Object.entries(middleMap)) {
+                    for (const suffix of suffixes) {
+                        addCardAccountRow(category, middleName, String(suffix));
+                    }
+                }
+            }
+        }
+
+        function addCardAccountRow(category = 'Assets', middleName = '', suffix = '') {
+            const container = document.getElementById('cardAccountRows');
+            const div = document.createElement('div');
+            div.className = 'card-account-row border border-gray-200 rounded-lg p-3 space-y-2';
+
+            div.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <select class="ca-category px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm bg-white shrink-0">
+                        <option value="Assets" ${category === 'Assets' ? 'selected' : ''}>Assets (资产)</option>
+                        <option value="Liabilities" ${category === 'Liabilities' ? 'selected' : ''}>Liabilities (负债)</option>
+                    </select>
+                    <span class="text-gray-400 shrink-0">:</span>
+                    <input type="text" class="ca-middle flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" value="${middleName}" placeholder="中间名称，如 BOC:Card">
+                    <span class="text-gray-400 shrink-0">:</span>
+                    <input type="text" class="ca-suffix w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm font-mono" value="${suffix}" placeholder="后四位" maxlength="4">
+                    <button type="button" class="remove-btn text-gray-400 hover:text-red-500 transition p-1 shrink-0">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="ca-preview text-xs font-mono text-gray-500 flex-1"></div>
+                    <div class="ca-error text-xs text-red-500 hidden"></div>
+                </div>
+            `;
+            container.appendChild(div);
+            div.querySelector('.remove-btn').addEventListener('click', () => div.remove());
+
+            // Auto-append colon to middle name
+            const middleInput = div.querySelector('.ca-middle');
+            const suffixInput = div.querySelector('.ca-suffix');
+            const updatePreview = () => updateCardAccountPreview(div);
+
+            middleInput.addEventListener('blur', () => {
+                let val = middleInput.value.trim();
+                // Remove trailing colon if present (it's added in the preview automatically)
+                if (val.endsWith(':')) {
+                    middleInput.value = val.slice(0, -1);
+                } else {
+                    middleInput.value = val;
+                }
+                updatePreview();
+            });
+            middleInput.addEventListener('input', updatePreview);
+            suffixInput.addEventListener('input', () => {
+                // Allow only digits and uppercase letters
+                suffixInput.value = suffixInput.value.replace(/[^0-9A-Z]/gi, '').toUpperCase();
+                updatePreview();
+            });
+            div.querySelector('.ca-category').addEventListener('change', updatePreview);
+            updatePreview();
+        }
+
+        function updateCardAccountPreview(row) {
+            const category = row.querySelector('.ca-category').value;
+            const middle = row.querySelector('.ca-middle').value.trim();
+            const suffix = row.querySelector('.ca-suffix').value.trim();
+            const previewEl = row.querySelector('.ca-preview');
+            const errorEl = row.querySelector('.ca-error');
+
+            errorEl.classList.add('hidden');
+            errorEl.textContent = '';
+
+            if (!middle && !suffix) {
+                previewEl.textContent = '';
+                return;
+            }
+
+            // Validate middle name segments: first char must be uppercase or digit
+            if (middle) {
+                const cleanMiddle = middle.endsWith(':') ? middle.slice(0, -1) : middle;
+                const segments = cleanMiddle.split(':');
+                for (let i = 0; i < segments.length; i++) {
+                    if (segments[i] && /^[a-z]/.test(segments[i])) {
+                        errorEl.textContent = `"${segments[i]}" 不能以小写字母开头`;
+                        errorEl.classList.remove('hidden');
+                        break;
+                    }
+                }
+            }
+
+            // Validate suffix: must be exactly 4 chars of digits/uppercase
+            if (suffix && suffix.length !== 4) {
+                errorEl.textContent = '后四位必须是 4 个字符';
+                errorEl.classList.remove('hidden');
+            } else if (suffix && !/^[0-9A-Z]{4}$/.test(suffix)) {
+                errorEl.textContent = '后四位只能包含数字和大写字母';
+                errorEl.classList.remove('hidden');
+            }
+
+            const middlePart = middle.endsWith(':') ? middle.slice(0, -1) : middle;
+            const parts = [category, middlePart, suffix].filter(Boolean);
+            previewEl.textContent = parts.join(':');
         }
 
         // ==================== 交易匹配规则 ====================
@@ -856,31 +973,31 @@
             const wechat = collectImporterData('wechat_fields');
             const thu_ecard = collectImporterData('thu_ecard_fields');
 
-            let hsbc_account_mapping = {};
-            const hsbcJsonError = document.getElementById('hsbcAccountMappingJsonError');
-            try {
-                const raw = document.getElementById('hsbcAccountMappingJson').value.trim();
-                hsbc_account_mapping = raw ? JSON.parse(raw) : {};
-                hsbcJsonError.classList.add('hidden');
-            } catch (e) {
-                hsbcJsonError.classList.remove('hidden');
-                throw new Error('hsbc_hk account_mapping JSON 格式错误');
-            }
+            const hsbc_account_one = document.getElementById('hsbc_account_one').value.trim();
+            const hsbc_account_pulse = document.getElementById('hsbc_account_pulse').value.trim();
+            const hsbc_account_mapping = {};
+            if (hsbc_account_one) hsbc_account_mapping.One = hsbc_account_one;
+            if (hsbc_account_pulse) hsbc_account_mapping.PULSE = hsbc_account_pulse;
             const hsbc_hk = {
                 use_cnh: document.getElementById('hsbc_use_cnh')?.checked || false,
                 account_mapping: hsbc_account_mapping
             };
 
-            let card_accounts = {};
-            const jsonError = document.getElementById('cardAccountsJsonError');
-            try {
-                const raw = document.getElementById('cardAccountsJson').value.trim();
-                card_accounts = raw ? JSON.parse(raw) : {};
-                jsonError.classList.add('hidden');
-            } catch (e) {
-                jsonError.classList.remove('hidden');
-                throw new Error('card_accounts JSON 格式错误');
-            }
+            // Collect card_accounts from structured rows
+            const card_accounts = {};
+            document.querySelectorAll('#cardAccountRows .card-account-row').forEach(row => {
+                const category = row.querySelector('.ca-category').value;
+                let middle = row.querySelector('.ca-middle').value.trim();
+                const suffix = row.querySelector('.ca-suffix').value.trim();
+                if (!middle || !suffix) return;
+                // Remove trailing colon from display — stored key should NOT end with colon
+                if (middle.endsWith(':')) middle = middle.slice(0, -1);
+                if (!card_accounts[category]) card_accounts[category] = {};
+                if (!card_accounts[category][middle]) card_accounts[category][middle] = [];
+                if (!card_accounts[category][middle].includes(suffix)) {
+                    card_accounts[category][middle].push(suffix);
+                }
+            });
 
             return {
                 unknown_expense_account: document.getElementById('unknown_expense_account').value.trim(),

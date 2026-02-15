@@ -7,10 +7,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./config.yaml:/app/config.yaml
+      - ./env.yaml:/app/env.yaml
       - ./data:/app/data
       - ./rawdata:/app/rawdata
       - ./archive:/app/archive
-      - ./main.bean:/app/main.bean
-      - ./accounts.bean:/app/accounts.bean
       - ./certs:/app/certs

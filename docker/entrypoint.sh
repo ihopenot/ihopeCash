@@ -1,6 +1,16 @@
 #!/bin/bash
 set -e
 
+# ==================== 环境配置检查 ====================
+
+if [ ! -f "/app/env.yaml" ]; then
+    echo "错误: 未找到 /app/env.yaml"
+    echo "请确保已挂载 env.yaml 到容器内 /app/env.yaml"
+    echo "参考 env.example.yaml 创建配置文件"
+    exit 1
+fi
+echo "检测到环境配置文件 env.yaml"
+
 CERT_DIR="/app/certs"
 CERT_FILE="$CERT_DIR/cert.pem"
 KEY_FILE="$CERT_DIR/key.pem"

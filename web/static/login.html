@@ -73,7 +73,19 @@
                 if (response.ok && data.success) {
                     localStorage.setItem('auth_token', data.token);
                     localStorage.setItem('token_expire_at', data.expire_at);
-                    window.location.href = '/';
+                    // Check if setup is required before redirecting
+                    try {
+                        const statusResp = await fetch('/api/setup/status');
+                        const statusData = await statusResp.json();
+                        if (statusData.setup_required) {
+                            window.location.href = '/setup';
+                        } else {
+                            window.location.href = '/';
+                        }
+                    } catch (err) {
+                        // Fallback to home page if status check fails
+                        window.location.href = '/';
+                    }
                 } else {
                     showError(data.detail || '登录失败');
                 }
@@ -88,10 +100,16 @@
             errorMessage.classList.remove('hidden');
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
             const token = localStorage.getItem('auth_token');
             if (token) {
-                window.location.href = '/';
+                try {
+                    const resp = await fetch('/api/setup/status');
+                    const data = await resp.json();
+                    window.location.href = data.setup_required ? '/setup' : '/';
+                } catch (e) {
+                    window.location.href = '/';
+                }
             }
         });
     </script>
