@@ -50,6 +50,7 @@
         <p class="text-center text-blue-400/60 text-xs mt-6">IhopeCash Web v1.0</p>
     </div>
 
+    <script src="/static/auth.js"></script>
     <script>
         const loginForm = document.getElementById('loginForm');
         const passwordInput = document.getElementById('password');
@@ -71,8 +72,7 @@
                 const data = await response.json();
                 
                 if (response.ok && data.success) {
-                    localStorage.setItem('auth_token', data.token);
-                    localStorage.setItem('token_expire_at', data.expire_at);
+                    setAuthToken(data.token, data.expire_at);
                     // Check if setup is required before redirecting
                     try {
                         const statusResp = await fetch('/api/setup/status');
@@ -101,7 +101,7 @@
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
-            const token = localStorage.getItem('auth_token');
+            const token = getAuthToken();
             if (token) {
                 try {
                     const resp = await fetch('/api/setup/status');

@@ -38,8 +38,6 @@ The system SHALL protect all API endpoints (except /api/auth/login and /api/setu
 - **THEN** system returns generic error message to client (e.g., "操作失败")
 - **THEN** system logs the detailed error information server-side
 
-## ADDED Requirements
-
 ### Requirement: Authentication works with env.yaml password during setup
 
 During setup mode (config.yaml does not exist), the system SHALL authenticate users using the password from env.yaml's web.password field.
@@ -52,6 +50,8 @@ During setup mode (config.yaml does not exist), the system SHALL authenticate us
 #### Scenario: JWT secret from env.yaml during setup
 - **WHEN** setup_required is True
 - **THEN** JWT tokens are signed using jwt_secret from env.yaml
+
+## ADDED Requirements
 
 ### Requirement: JWT secret 默认值必须自动替换
 系统启动时 MUST 检测 `jwt_secret` 是否为默认值 `"change_this_secret_key"`。如果是，系统 SHALL 自动生成一个随机的安全密钥并写入 env.yaml。

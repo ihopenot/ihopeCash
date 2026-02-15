@@ -185,7 +185,7 @@ class Config:
             )
         
         with open(self.env_file, 'r', encoding='utf-8') as f:
-            env_config = yaml.load(f, Loader=yaml.FullLoader) or {}
+            env_config = yaml.load(f, Loader=yaml.SafeLoader) or {}
         
         return env_config
     
@@ -210,7 +210,7 @@ class Config:
             # 加载现有业务配置
             self._setup_required = False
             with open(self.config_file, 'r', encoding='utf-8') as f:
-                self._config = yaml.load(f, Loader=yaml.FullLoader) or {}
+                self._config = yaml.load(f, Loader=yaml.SafeLoader) or {}
             # 合并默认配置（确保所有必需字段存在）
             self._merge_defaults()
         
@@ -309,7 +309,7 @@ class Config:
     @property
     def balance_accounts(self) -> List[str]:
         """余额账户列表"""
-        return self._config.get("system", {}).get("balance_accounts", [])
+        return copy.deepcopy(self._config.get("system", {}).get("balance_accounts", []))
     
     # ==================== Web 配置属性 ====================
     
@@ -352,23 +352,22 @@ class Config:
         # 尝试导入 BillDetailMapping
         try:
             from china_bean_importers.common import BillDetailMapping as BDM
-            
-            # 转换为 BDM 对象
-            result = []
-            for mapping in mappings_data:
-                bdm = BDM(
-                    narration_keywords=mapping.get("narration_keywords", []),
-                    payee_keywords=mapping.get("payee_keywords", []),
-                    destination_account=mapping.get("account", ""),
-                    additional_tags=mapping.get("tags", []),
-                    additional_metadata=mapping.get("metadata", {})
-                )
-                result.append(bdm)
-            return result
-            
         except ImportError:
-            # china_bean_importers 不可用，返回原始数据
-            return mappings_data
+            # china_bean_importers 不可用，返回原始数据深拷贝
+            return copy.deepcopy(mappings_data)
+        
+        # 转换为 BDM 对象
+        result = []
+        for mapping in mappings_data:
+            bdm = BDM(
+                narration_keywords=mapping.get("narration_keywords", []),
+                payee_keywords=mapping.get("payee_keywords", []),
+                destination_account=mapping.get("account", ""),
+                additional_tags=mapping.get("tags", []),
+                additional_metadata=mapping.get("metadata", {})
+            )
+            result.append(bdm)
+        return result
     
     # ==================== 便捷访问方法 ====================
     
@@ -470,9 +469,9 @@ class Config:
         if "system" in data:
             for key in self._PROTECTED_SYSTEM_KEYS:
                 data["system"].pop(key, None)
-            # 合并 system 的可编辑字段
+            # 合并 system 的可编辑字段（使用深度覆盖避免丢失嵌套键）
             if "system" in self._config:
-                self._config["system"].update(data.pop("system"))
+                self._deep_override(self._config["system"], data.pop("system"))
             else:
                 self._config["system"] = data.pop("system")
         
@@ -484,10 +483,10 @@ class Config:
                 original_password = self._config.get("email", {}).get("imap", {}).get("password", "")
                 data["email"]["imap"]["password"] = original_password
         
-        # 合并其余可编辑字段
+        # 合并其余可编辑字段（使用深度覆盖避免丢失嵌套键）
         for key, value in data.items():
             if isinstance(value, dict) and isinstance(self._config.get(key), dict):
-                self._config[key].update(value)
+                self._deep_override(self._config[key], value)
             else:
                 self._config[key] = value
         
@@ -505,7 +504,7 @@ class Config:
         """
         # 加载当前 env.yaml
         with open(self.env_file, 'r', encoding='utf-8') as f:
-            env_config = yaml.load(f, Loader=yaml.FullLoader) or {}
+            env_config = yaml.load(f, Loader=yaml.SafeLoader) or {}
         
         # 更新密码
         if "web" not in env_config:

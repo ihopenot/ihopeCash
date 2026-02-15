@@ -1,11 +1,14 @@
 import os, io, re, fitz, pyzipper
+import logging
 import requests
 import imaplib
 import email
 from email.header import decode_header
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Optional
 import pandas as pd
 import itertools
+
+logger = logging.getLogger(__name__)
 
 def decode_str(s):
     val, encoding = decode_header(s)[0]
@@ -13,11 +16,8 @@ def decode_str(s):
         val = val.decode(encoding)
     return val
 
-class BaseEmailHanlder:
+class BaseEmailHandler:
     def __init__(self, config: Dict[str, Any] = None):
-        self.config = config
-    
-    def init(self, config):
         self.config = config
     
     # we already filtered the email on the server side
@@ -31,6 +31,7 @@ class BaseEmailHanlder:
                 name = decode_str(file_name)
                 data = part.get_payload(decode=True)
                 return name, data
+        raise RuntimeError("No attachment found in the email")
     
     def post_process(self, name: str, data: bytes) -> Tuple[str, bytes]:
         return name, data
@@ -65,23 +66,23 @@ def decrypt_zip(data, password_itr, extract_suffix=".csv", zipfile_cls=pyzipper.
                     try:
                         with zip_ref.open(zip_info, pwd=password.encode()) as source:
                             data = source.read()
-                            print(f'Successfully extracted .csv files from {password.encode()}')
+                            logger.info('Successfully extracted file with config password')
                             return ret_name, data
-                    except Exception as e:
-                        pass
+                    except (RuntimeError, pyzipper.BadZipFile):
+                        continue
 
                 for password in password_itr:
                     try:
                         with zip_ref.open(zip_info, pwd=bytes(password)) as source:
                             data = source.read()
-                            print(f'Successfully extracted .csv files from {bytes(password)}')
+                            logger.info('Successfully extracted file with brute-force password')
                             return ret_name, data
-                    except Exception as e:
-                        pass
+                    except (RuntimeError, pyzipper.BadZipFile):
+                        continue
     return None
 
 
-class WeChatEmailHandler(BaseEmailHanlder):
+class WeChatEmailHandler(BaseEmailHandler):
     reg_download_url = re.compile(r'"(https://tenpay.wechatpay.cn/userroll/userbilldownload/downloadfilefromemail\?.*?)"')
     password_itr = itertools.product(b"1234567890", repeat=6)
 
@@ -97,19 +98,21 @@ class WeChatEmailHandler(BaseEmailHanlder):
                 if len(download_urls) > 0:
                     r = requests.get(download_urls[0])
                     return "wechat.zip", r.content
-        raise Exception("No download URL found in the email")
+        raise RuntimeError("No download URL found in the email")
     
     def post_process(self, name: str, data: bytes) -> Tuple[str, bytes]:
         config_passwords = self.config.get("passwords", []) if self.config else []
-        name, xlsfile = decrypt_zip(data, self.password_itr, ".xlsx", pyzipper.AESZipFile, config_passwords)
+        result = decrypt_zip(data, self.password_itr, ".xlsx", pyzipper.AESZipFile, config_passwords)
+        if result is None:
+            raise RuntimeError("Failed to decrypt WeChat bill zip file")
+        name, xlsfile = result
         xls_df = pd.read_excel(io.BytesIO(xlsfile))
         name = os.path.splitext(name)[0] + ".csv"
         return name, xls_df.to_csv(None, index=False).encode()
-        # return decrypt_zip(data, self.password_itr)
 
 
 
-class AlipayEmailHandler(BaseEmailHanlder):
+class AlipayEmailHandler(BaseEmailHandler):
     password_itr = itertools.product(b"1234567890", repeat=6)
 
     def is_match(self, msg):
@@ -118,10 +121,13 @@ class AlipayEmailHandler(BaseEmailHanlder):
 
     def post_process(self, name: str, data: bytes) -> Tuple[str, bytes]:
         config_passwords = self.config.get("passwords", []) if self.config else []
-        return decrypt_zip(data, self.password_itr, config_passwords=config_passwords)
+        result = decrypt_zip(data, self.password_itr, config_passwords=config_passwords)
+        if result is None:
+            raise RuntimeError("Failed to decrypt Alipay bill zip file")
+        return result
 
 
-class BoCDebitEmailHandler(BaseEmailHanlder):
+class BoCDebitEmailHandler(BaseEmailHandler):
     password_itr = itertools.product("1234567890", repeat=6)
 
     def is_match(self, msg):
@@ -129,27 +135,24 @@ class BoCDebitEmailHandler(BaseEmailHanlder):
         return "中国银行交易流水" in subject
 
     def post_process(self, name: str, data: bytes) -> Tuple[str, bytes]:
-        try:
-            with fitz.open(stream=data, filetype="pdf") as doc:
+        with fitz.open(stream=data, filetype="pdf") as doc:
+            if doc.is_encrypted:
+                config_passwords = self.config.get("passwords", []) if self.config else []
+                for password in config_passwords:
+                    doc.authenticate(password)
+                    if not doc.is_encrypted:
+                        break
                 if doc.is_encrypted:
-                    config_passwords = self.config.get("passwords", []) if self.config else []
-                    for password in config_passwords:
-                        doc.authenticate(password)
+                    for password in self.password_itr:
+                        doc.authenticate("".join(password))
                         if not doc.is_encrypted:
                             break
-                    if doc.is_encrypted:
-                        for password in self.password_itr:
-                            doc.authenticate("".join(password))
-                            if not doc.is_encrypted:
-                                break
-                    if doc.is_encrypted:
-                        raise Exception('Failed to decrypt')
-                    print(f'Successfully decrypted {name}')
-                    return name, doc.tobytes()
-        except Exception as e:
-            print(e)
+                if doc.is_encrypted:
+                    raise RuntimeError('Failed to decrypt BoC PDF')
+                logger.info(f'Successfully decrypted {name}')
+            return name, doc.tobytes()
 
-class CCBDebitEmailHandler(BaseEmailHanlder):
+class CCBDebitEmailHandler(BaseEmailHandler):
     password_itr = itertools.product(b"1234567890", repeat=6)
 
     def is_match(self, msg):
@@ -158,7 +161,10 @@ class CCBDebitEmailHandler(BaseEmailHanlder):
 
     def post_process(self, name: str, data: bytes) -> Tuple[str, bytes]:
         config_passwords = self.config.get("passwords", []) if self.config else []
-        name, xlsfile = decrypt_zip(data, self.password_itr, ".xls", pyzipper.AESZipFile, config_passwords)
+        result = decrypt_zip(data, self.password_itr, ".xls", pyzipper.AESZipFile, config_passwords)
+        if result is None:
+            raise RuntimeError("Failed to decrypt CCB bill zip file")
+        name, xlsfile = result
         xls_df = pd.read_excel(io.BytesIO(xlsfile))
         name = os.path.splitext(name)[0] + ".csv"
         return name, xls_df.to_csv(None, index=False).encode()
@@ -174,11 +180,11 @@ def DownloadFiles(config: Dict[str, Any] = None):
         try:
             from config import Config as OldConfig
             config = OldConfig
-        except:
-            raise Exception("需要提供 config 参数或确保 config.py 存在")
+        except ImportError:
+            raise RuntimeError("需要提供 config 参数或确保 config.py 存在")
     
     # 初始化所有 handler 使用新配置
-    handlers: List[BaseEmailHanlder] = [
+    handlers: List[BaseEmailHandler] = [
         WeChatEmailHandler(config),
         AlipayEmailHandler(config),
         BoCDebitEmailHandler(config),
@@ -187,35 +193,36 @@ def DownloadFiles(config: Dict[str, Any] = None):
     
     cfg = config["email"]["imap"]
     server = imaplib.IMAP4_SSL(cfg["host"], cfg["port"])
-    server.login(cfg["username"], cfg["password"])
+    try:
+        server.login(cfg["username"], cfg["password"])
 
-    # server.create("Bills")
-    print(server.list())
-    print(server.select(cfg["mailbox"]))
-    _, mails = server.search(None, 'UNSEEN')
-    print(mails)
-    mails = mails[0].split()
-    for mail in mails:
-        _, data = server.fetch(mail, '(RFC822)')
-        msg = email.message_from_bytes(data[0][1])
+        # server.create("Bills")
+        print(server.list())
+        print(server.select(cfg["mailbox"]))
+        _, mails = server.search(None, 'UNSEEN')
+        print(mails)
+        mails = mails[0].split()
+        for mail in mails:
+            _, data = server.fetch(mail, '(RFC822)')
+            msg = email.message_from_bytes(data[0][1])
 
-        for handler in handlers:
-            handler.process(msg)
-        
+            for handler in handlers:
+                handler.process(msg)
+            
+            try:
+                server.store(mail, '+FLAGS', '\\Seen')
+            except imaplib.IMAP4.error:
+                logger.warning("Failed to mark email as seen, reconnecting...")
+                server = imaplib.IMAP4_SSL(cfg["host"], cfg["port"])
+                server.login(cfg["username"], cfg["password"])
+                server.select(cfg["mailbox"])
+                server.store(mail, '+FLAGS', '\\Seen')
+    finally:
         try:
-            server.store(mail, '+FLAGS', '\\Seen')
+            server.logout()
         except Exception:
-            server = imaplib.IMAP4_SSL(cfg["host"], cfg["port"])
-            server.login(cfg["username"], cfg["password"])
-            server.select(cfg["mailbox"])
-            server.store(mail, '+FLAGS', '\\Seen')
-
-    server.logout()
+            pass
 
 
 if __name__ == "__main__":
     DownloadFiles()
-# decrypt_zip("rawdata/wechat.zip", itertools.product(b"1234567890", repeat=6))
-# WeChatEmailHandler().post_process("wechat.zip", open("rawdata/wechat.zip", "rb").read())
-# BoCDebitEmailHandler().post_process("KA020000001560066560001.pdf", open("rawdata/KA020000001560066560001.pdf", "rb").read())
-# CCBDebitEmailHandler().post_process("hqmx_20240901131340.zip", open("rawdata/hqmx_20240901131340.zip", "rb").read())

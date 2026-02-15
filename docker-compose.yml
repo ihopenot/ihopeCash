@@ -12,3 +12,13 @@ services:
       - ./rawdata:/app/rawdata
       - ./archive:/app/archive
       - ./certs:/app/certs
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "2.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

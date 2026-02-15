@@ -23,9 +23,3 @@
     background-color: #eff6ff;
     color: #1e40af;
 }
-
-/* 密码输入框显示/隐藏切换 */
-.password-toggle {
-    cursor: pointer;
-    user-select: none;
-}

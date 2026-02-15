@@ -9,9 +9,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, List, Any, Optional
 import datetime
+import logging
 import re
+import secrets
 import sys
 import os
+import time
+import yaml
+
+logger = logging.getLogger(__name__)
 
 # 添加父目录到 path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -34,6 +40,24 @@ app = FastAPI(
 # 加载配置
 config = Config()
 
+# JWT secret 默认值自动替换
+if config.jwt_secret == "change_this_secret_key":
+    new_secret = secrets.token_hex(32)
+    # 写入 env.yaml
+    env_file = config.env_file
+    try:
+        with open(env_file, 'r', encoding='utf-8') as f:
+            env_config = yaml.load(f, Loader=yaml.SafeLoader) or {}
+        if "web" not in env_config:
+            env_config["web"] = {}
+        env_config["web"]["jwt_secret"] = new_secret
+        with open(env_file, 'w', encoding='utf-8') as f:
+            yaml.dump(env_config, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        config.load()  # 重新加载
+        logger.info("已自动生成新的 JWT secret 并写入 env.yaml")
+    except Exception as e:
+        logger.error(f"自动生成 JWT secret 失败: {e}")
+
 # 配置验证 - 启动时检查默认值
 warnings = config.validate_web_config()
 if warnings:
@@ -41,6 +65,11 @@ if warnings:
     for warning in warnings:
         print(f"  - {warning}")
     print()
+
+# 登录速率限制存储
+_login_attempts: Dict[str, Dict[str, Any]] = {}  # ip -> {"count": int, "blocked_until": float}
+_RATE_LIMIT_MAX_ATTEMPTS = 5
+_RATE_LIMIT_BLOCK_SECONDS = 300  # 5 minutes
 
 if config.setup_required:
     print("📋 首次运行，需要完成配置引导")
@@ -244,7 +273,8 @@ async def complete_setup(
         config.complete_setup(request.config, request.new_accounts)
         return {"success": True, "message": "配置完成"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"配置写入失败: {str(e)}")
+        logger.exception("配置写入失败")
+        raise HTTPException(status_code=500, detail="操作失败")
 
 
 # ==================== API 端点 ====================
@@ -262,18 +292,37 @@ async def login_page():
 
 
 @app.post("/api/auth/login")
-async def login(request: LoginRequest):
+async def login(request: LoginRequest, req: Request):
     """登录端点 - 验证密码并返回 JWT token
     
     Args:
         request: 登录请求（包含密码）
+        req: FastAPI Request 对象
         
     Returns:
         包含 token 和过期时间的字典
     """
+    # 速率限制检查
+    client_ip = req.client.host if req.client else "unknown"
+    now = time.time()
+    if client_ip in _login_attempts:
+        attempt_info = _login_attempts[client_ip]
+        if attempt_info.get("blocked_until", 0) > now:
+            raise HTTPException(status_code=429, detail="登录尝试次数过多，请稍后再试")
+    
     # 验证密码
     if not verify_password(request.password, config):
+        # 记录失败尝试
+        if client_ip not in _login_attempts:
+            _login_attempts[client_ip] = {"count": 0, "blocked_until": 0}
+        _login_attempts[client_ip]["count"] += 1
+        if _login_attempts[client_ip]["count"] >= _RATE_LIMIT_MAX_ATTEMPTS:
+            _login_attempts[client_ip]["blocked_until"] = now + _RATE_LIMIT_BLOCK_SECONDS
+            logger.warning(f"IP {client_ip} blocked due to too many failed login attempts")
         raise HTTPException(status_code=401, detail="密码错误")
+    
+    # 登录成功，清除失败记录
+    _login_attempts.pop(client_ip, None)
     
     # 生成 token
     token_data = create_jwt_token(config)
@@ -328,6 +377,15 @@ async def start_import(
     if request.mode not in ["normal", "force", "append"]:
         raise HTTPException(status_code=400, detail="无效的导入模式")
     
+    # 验证年月参数
+    try:
+        year_int = int(request.year)
+        month_int = int(request.month)
+        if month_int < 1 or month_int > 12:
+            raise HTTPException(status_code=400, detail="月份必须在1-12之间")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="年份和月份必须为有效数字")
+    
     # 创建任务
     task_id = await task_manager.create_task(
         year=request.year,
@@ -381,7 +439,8 @@ async def update_full_config(
         config.update_from_web(data)
         return {"success": True, "message": "配置已保存"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"保存配置失败: {str(e)}")
+        logger.exception("保存配置失败")
+        raise HTTPException(status_code=500, detail="操作失败")
 
 
 @app.post("/api/config/change-password")
@@ -411,33 +470,34 @@ async def change_password(
         config.update_web_password(request.new_password)
         return {"success": True, "message": "密码已修改"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"修改密码失败: {str(e)}")
+        logger.exception("修改密码失败")
+        raise HTTPException(status_code=500, detail="操作失败")
 
 
 @app.websocket("/ws/progress")
-async def websocket_progress(websocket: WebSocket, token: str = None):
+async def websocket_progress(websocket: WebSocket):
     """WebSocket 端点 - 实时推送导入进度
     
-    需要认证（通过查询参数 token）
+    认证通过首条消息传递 token。
     
     Args:
         websocket: WebSocket 连接
-        token: JWT token（查询参数）
     """
-    # 验证 token
-    try:
-        verify_ws_token(token)
-    except HTTPException:
-        await websocket.close(code=1008, reason="Unauthorized")
-        return
-    
-    # 接受连接
+    # 先接受连接，然后通过首条消息验证 token
     await websocket.accept()
     
-    # 等待客户端发送 task_id
     try:
+        # 等待客户端发送 token 和 task_id
         data = await websocket.receive_json()
+        token = data.get("token")
         task_id = data.get("task_id")
+        
+        # 验证 token
+        try:
+            verify_ws_token(token)
+        except HTTPException:
+            await websocket.close(code=1008, reason="Unauthorized")
+            return
         
         if not task_id:
             await websocket.close(code=1008, reason="Missing task_id")
@@ -628,7 +688,8 @@ async def get_ledger_info(user: dict = Depends(get_current_user)):
         info = _parse_ledger_info()
         return info
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"读取账本信息失败: {str(e)}")
+        logger.exception("读取账本信息失败")
+        raise HTTPException(status_code=500, detail="操作失败")
 
 
 @app.put("/api/ledger/info")
@@ -676,7 +737,8 @@ async def update_ledger_info(
         
         return {"success": True, "message": "账本信息已更新"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"更新账本信息失败: {str(e)}")
+        logger.exception("更新账本信息失败")
+        raise HTTPException(status_code=500, detail="操作失败")
 
 
 @app.get("/api/ledger/accounts")
@@ -700,7 +762,8 @@ async def get_ledger_accounts(user: dict = Depends(get_current_user)):
         
         return {"accounts": grouped}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"读取账户列表失败: {str(e)}")
+        logger.exception("读取账户列表失败")
+        raise HTTPException(status_code=500, detail="操作失败")
 
 
 @app.post("/api/ledger/accounts")
@@ -745,7 +808,8 @@ async def add_ledger_account(
     # 构建 open 指令
     currencies_part = f" {request.currencies.strip()}" if request.currencies.strip() else ""
     comment_part = f" ; {request.comment.strip()}" if request.comment.strip() else ""
-    line = f"1999-01-01 open {full_account}{currencies_part}{comment_part}\n"
+    today = datetime.date.today().isoformat()
+    line = f"{today} open {full_account}{currencies_part}{comment_part}\n"
     
     try:
         accounts_bean = _get_accounts_bean_path()
@@ -754,7 +818,8 @@ async def add_ledger_account(
             f.write(line)
         return {"success": True, "message": f"账户 {full_account} 已创建"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"创建账户失败: {str(e)}")
+        logger.exception("创建账户失败")
+        raise HTTPException(status_code=500, detail="操作失败")
 
 
 @app.post("/api/ledger/accounts/close")
@@ -795,7 +860,8 @@ async def close_ledger_account(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"校验账户失败: {str(e)}")
+        logger.exception("校验账户失败")
+        raise HTTPException(status_code=500, detail="操作失败")
     
     # 追加 close 指令
     line = f"{close_date} close {account_name}\n"
@@ -807,7 +873,8 @@ async def close_ledger_account(
             f.write(line)
         return {"success": True, "message": f"账户 {account_name} 已关闭"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"关闭账户失败: {str(e)}")
+        logger.exception("关闭账户失败")
+        raise HTTPException(status_code=500, detail="操作失败")
 
 
 # ==================== CORS 中间件（可选）====================

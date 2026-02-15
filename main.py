@@ -36,7 +36,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Download failed: {e}")
         import traceback
-        traceback.print_exception(e)
+        traceback.print_exc()
         sys.exit(1)
     
     input("decryption done, press Enter to continue...")
@@ -54,8 +54,18 @@ if __name__ == "__main__":
     
     opt = input(f"Create directory of {year}-{month}? (y/N):")
     if opt.lower() != "y":
-        year = input("Year: ")
-        month = input("Month: ")
+        year = input("Year: ").strip()
+        month = input("Month: ").strip()
+        # 验证输入
+        try:
+            y = int(year)
+            m = int(month)
+            if m < 1 or m > 12:
+                print("Month must be between 1 and 12")
+                sys.exit(1)
+        except ValueError:
+            print("Year and month must be valid numbers")
+            sys.exit(1)
     
     # 识别文件
     try:
@@ -66,7 +76,7 @@ if __name__ == "__main__":
         sys.exit(1)
     
     print(f"creating directory of {year}-{month}")
-    input("Press Enter to comfirm...")
+    input("Press Enter to confirm...")
     
     # 创建目录
     try:

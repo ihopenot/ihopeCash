@@ -116,12 +116,12 @@ def get_current_user(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"认证失败: {str(e)}"
+            detail="认证失败"
         )
 
 
 def verify_ws_token(token: str) -> dict:
-    """验证 WebSocket 连接的 token（从查询参数）
+    """验证 WebSocket 连接的 token（从首条消息中提取）
     
     Args:
         token: JWT token 字符串

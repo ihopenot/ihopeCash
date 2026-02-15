@@ -48,6 +48,19 @@ echo "启动 Fava..."
 fava /app/data/main.bean --host 127.0.0.1 --port 5000 --prefix /fava &
 echo "Fava 已启动 (127.0.0.1:5000, prefix=/fava)"
 
+# 等待 Fava 就绪
+echo "等待 Fava 就绪..."
+for i in $(seq 1 30); do
+    if curl -sf http://127.0.0.1:5000/fava/ > /dev/null 2>&1; then
+        echo "Fava 已就绪"
+        break
+    fi
+    if [ "$i" -eq 30 ]; then
+        echo "警告: Fava 未在 30 秒内就绪，继续启动 Web 服务"
+    fi
+    sleep 1
+done
+
 # ==================== 启动 Uvicorn ====================
 
 echo "启动 IhopeCash Web 服务..."

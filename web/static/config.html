@@ -303,6 +303,7 @@
         </div>
     </div>
 
+    <script src="/static/auth.js"></script>
     <script>
         // ==================== 全局 ====================
         let configData = null;
@@ -313,19 +314,6 @@
             'Expenses': '支出',
             'Equity': '权益'
         };
-
-        function checkAuth() {
-            const token = localStorage.getItem('auth_token');
-            if (!token) { window.location.href = '/login'; return false; }
-            return true;
-        }
-
-        function getAuthHeaders() {
-            return {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-            };
-        }
 
         function showMessage(text, type = 'success') {
             const bar = document.getElementById('messageBar');
@@ -361,7 +349,7 @@
         async function loadLedgerInfo() {
             try {
                 const resp = await fetch('/api/ledger/info', { headers: getAuthHeaders() });
-                if (resp.status === 401) { localStorage.removeItem('auth_token'); window.location.href = '/login'; return; }
+                if (resp.status === 401) { clearAuthToken(); window.location.href = '/login'; return; }
                 const data = await resp.json();
                 document.getElementById('ledger_title').value = data.title || '';
                 document.getElementById('ledger_currency').value = data.operating_currency || '';
@@ -399,7 +387,7 @@
         async function loadLedgerAccounts() {
             try {
                 const resp = await fetch('/api/ledger/accounts', { headers: getAuthHeaders() });
-                if (resp.status === 401) { localStorage.removeItem('auth_token'); window.location.href = '/login'; return; }
+                if (resp.status === 401) { clearAuthToken(); window.location.href = '/login'; return; }
                 const data = await resp.json();
                 ledgerAccounts = data.accounts || {};
                 renderAccountGroups();
@@ -467,16 +455,16 @@
             const isClosed = acc.status === 'closed';
             const nameClass = isClosed ? 'text-gray-400 line-through' : 'text-gray-800';
             const currencyText = acc.currencies.length > 0 ? acc.currencies.join(', ') : '*';
-            const commentText = acc.comment ? `<span class="text-gray-400 ml-2">${acc.comment}</span>` : '';
+            const commentText = acc.comment ? `<span class="text-gray-400 ml-2">${escapeHtml(acc.comment)}</span>` : '';
             const closeBtn = isClosed
-                ? `<span class="text-xs text-gray-400">已关闭 (${acc.close_date})</span>`
-                : `<button class="close-acc-btn text-xs text-red-500 hover:text-red-700 font-medium transition" data-account="${acc.name}" data-comment="${acc.comment || ''}">关闭</button>`;
+                ? `<span class="text-xs text-gray-400">已关闭 (${escapeHtml(acc.close_date)})</span>`
+                : `<button class="close-acc-btn text-xs text-red-500 hover:text-red-700 font-medium transition" data-account="${escapeHtml(acc.name)}" data-comment="${escapeHtml(acc.comment || '')}">关闭</button>`;
 
             return `
                 <div class="flex items-center justify-between px-4 py-2 border-t border-gray-100 hover:bg-gray-50">
                     <div class="flex-1 min-w-0">
-                        <span class="text-sm ${nameClass} font-mono">${acc.name}</span>
-                        <span class="text-xs text-gray-400 ml-2">${currencyText}</span>
+                        <span class="text-sm ${nameClass} font-mono">${escapeHtml(acc.name)}</span>
+                        <span class="text-xs text-gray-400 ml-2">${escapeHtml(currencyText)}</span>
                         ${commentText}
                     </div>
                     <div class="shrink-0 ml-3">${closeBtn}</div>
@@ -634,7 +622,7 @@
             if (!checkAuth()) return;
             try {
                 const resp = await fetch('/api/config/full', { headers: getAuthHeaders() });
-                if (resp.status === 401) { localStorage.removeItem('auth_token'); window.location.href = '/login'; return; }
+                if (resp.status === 401) { clearAuthToken(); window.location.href = '/login'; return; }
                 configData = await resp.json();
                 renderBasicTab();
                 renderAdvancedTab();
@@ -665,7 +653,7 @@
             const div = document.createElement('div');
             div.className = 'flex items-center gap-2';
             div.innerHTML = `
-                <input type="text" class="account-input flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" value="${value}" placeholder="例如 Assets:BoC:Card:XXX">
+                <input type="text" class="account-input flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" value="${escapeHtml(value)}" placeholder="例如 Assets:BoC:Card:XXX">
                 <button type="button" class="remove-btn text-gray-400 hover:text-red-500 transition p-1">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
@@ -689,11 +677,20 @@
 
             const whitelist = configData.importers?.card_narration_whitelist || [];
             const blacklist = configData.importers?.card_narration_blacklist || [];
-            // Prefill defaults if empty
+            // Only use defaults when narration filter fields don't exist at all (first-time use)
             const DEFAULT_WHITELIST = ['财付通(银联云闪付)'];
             const DEFAULT_BLACKLIST = ['支付宝', '财付通', '美团支付'];
-            renderStringList('whitelist_items', whitelist.length > 0 ? whitelist : DEFAULT_WHITELIST);
-            renderStringList('blacklist_items', blacklist.length > 0 ? blacklist : DEFAULT_BLACKLIST);
+            const hasNarrationFilter = configData.importers?.card_narration_whitelist !== undefined ||
+                                       configData.importers?.card_narration_blacklist !== undefined;
+            if (!hasNarrationFilter) {
+                // First-time: use defaults
+                renderStringList('whitelist_items', DEFAULT_WHITELIST);
+                renderStringList('blacklist_items', DEFAULT_BLACKLIST);
+            } else {
+                // User has set values (including empty) - respect them
+                renderStringList('whitelist_items', whitelist);
+                renderStringList('blacklist_items', blacklist);
+            }
 
             renderCardAccounts();
             renderDetailMappings();
@@ -714,16 +711,16 @@
                 if (key === 'category_mapping' || key === 'account_mapping') continue;
                 const div = document.createElement('div');
                 const inputType = typeof value === 'boolean' ? 'checkbox' : 'text';
-                if (inputType === 'checkbox') {
+                    if (inputType === 'checkbox') {
                     div.className = 'flex items-center gap-2';
                     div.innerHTML = `
-                        <input type="checkbox" class="importer-field rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-key="${key}" ${value ? 'checked' : ''}>
-                        <label class="text-sm text-gray-600">${key}</label>
+                        <input type="checkbox" class="importer-field rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-key="${escapeHtml(key)}" ${value ? 'checked' : ''}>
+                        <label class="text-sm text-gray-600">${escapeHtml(key)}</label>
                     `;
                 } else {
                     div.innerHTML = `
-                        <label class="block text-sm font-medium text-gray-600 mb-1">${key}</label>
-                        <input type="text" class="importer-field w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" data-key="${key}" value="${value || ''}">
+                        <label class="block text-sm font-medium text-gray-600 mb-1">${escapeHtml(key)}</label>
+                        <input type="text" class="importer-field w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" data-key="${escapeHtml(key)}" value="${escapeHtml(value || '')}">
                     `;
                 }
                 container.appendChild(div);
@@ -749,7 +746,7 @@
             const div = document.createElement('div');
             div.className = 'flex items-center gap-2';
             div.innerHTML = `
-                <input type="text" class="list-item flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" value="${value}">
+                <input type="text" class="list-item flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" value="${escapeHtml(value)}">
                 <button type="button" class="remove-btn text-gray-400 hover:text-red-500 transition p-1">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
@@ -784,9 +781,9 @@
                         <option value="Liabilities" ${category === 'Liabilities' ? 'selected' : ''}>Liabilities (负债)</option>
                     </select>
                     <span class="text-gray-400 shrink-0">:</span>
-                    <input type="text" class="ca-middle flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" value="${middleName}" placeholder="中间名称，如 BOC:Card">
+                    <input type="text" class="ca-middle flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" value="${escapeHtml(middleName)}" placeholder="中间名称，如 BOC:Card">
                     <span class="text-gray-400 shrink-0">:</span>
-                    <input type="text" class="ca-suffix w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm font-mono" value="${suffix}" placeholder="后四位" maxlength="4">
+                    <input type="text" class="ca-suffix w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm font-mono" value="${escapeHtml(suffix)}" placeholder="后四位" maxlength="4">
                     <button type="button" class="remove-btn text-gray-400 hover:text-red-500 transition p-1 shrink-0">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
@@ -887,19 +884,19 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs text-gray-500 mb-1">payee_keywords (逗号分隔)</label>
-                        <input type="text" class="mapping-payee w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${(data.payee_keywords || []).join(', ')}">
+                        <input type="text" class="mapping-payee w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${escapeHtml((data.payee_keywords || []).join(', '))}">
                     </div>
                     <div>
                         <label class="block text-xs text-gray-500 mb-1">narration_keywords (逗号分隔)</label>
-                        <input type="text" class="mapping-narration w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${(data.narration_keywords || []).join(', ')}">
+                        <input type="text" class="mapping-narration w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${escapeHtml((data.narration_keywords || []).join(', '))}">
                     </div>
                     <div>
                         <label class="block text-xs text-gray-500 mb-1">account</label>
-                        <input type="text" class="mapping-account w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${data.account || ''}">
+                        <input type="text" class="mapping-account w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${escapeHtml(data.account || '')}">
                     </div>
                     <div>
                         <label class="block text-xs text-gray-500 mb-1">tags (逗号分隔)</label>
-                        <input type="text" class="mapping-tags w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${(data.tags || []).join(', ')}">
+                        <input type="text" class="mapping-tags w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${escapeHtml((data.tags || []).join(', '))}">
                     </div>
                 </div>
             `;
@@ -1024,7 +1021,7 @@
                     headers: getAuthHeaders(),
                     body: JSON.stringify(data)
                 });
-                if (resp.status === 401) { localStorage.removeItem('auth_token'); window.location.href = '/login'; return; }
+                if (resp.status === 401) { clearAuthToken(); window.location.href = '/login'; return; }
                 const result = await resp.json();
                 if (result.success) {
                     showMessage(result.message);
@@ -1088,9 +1085,7 @@
         // ==================== 退出登录 ====================
 
         document.getElementById('logoutBtn').addEventListener('click', () => {
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('token_expire_at');
-            window.location.href = '/login';
+            logout();
         });
 
         // ==================== 初始化 ====================

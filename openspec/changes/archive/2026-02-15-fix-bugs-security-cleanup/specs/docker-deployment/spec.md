@@ -1,11 +1,11 @@
 ## MODIFIED Requirements
 
 ### Requirement: 数据卷必须实现持久化
-系统 SHALL 通过 Docker volume 挂载实现数据持久化，容器重建不丢失数据。Docker 只需挂载 env.yaml，不再挂载 config.yaml。`docker-compose.yml` MUST 包含资源限制和日志配置。
+系统 SHALL 通过 Docker volume 挂载实现数据持久化，容器重建不丢失数据。Docker 只需挂载 env.yaml，不再挂载 config.yaml。`env.yaml` MUST 以只读方式挂载（`:ro`）。`docker-compose.yml` MUST 包含资源限制和日志配置。
 
 #### Scenario: 环境配置文件持久化
 - **WHEN** docker-compose.yml 中定义 volumes
-- **THEN** 宿主机的 `env.yaml` 挂载到容器内 `/app/env.yaml`
+- **THEN** 宿主机的 `env.yaml` 挂载到容器内 `/app/env.yaml:ro`（只读）
 - **THEN** 不挂载 config.yaml（config.yaml 仅存在于容器内部，通过 Web 管理）
 
 #### Scenario: 账本数据持久化
@@ -27,8 +27,6 @@
 - **THEN** 使用 json-file 驱动
 - **THEN** 设置 max-size 和 max-file 限制日志大小
 
-## ADDED Requirements
-
 ### Requirement: 入口脚本必须检查 env.yaml 存在性
 docker/entrypoint.sh SHALL 在启动服务前检查 `/app/env.yaml` 是否存在，不存在时报错退出。入口脚本 MUST 对后台进程进行基本健康检查。
 
@@ -45,6 +43,8 @@ docker/entrypoint.sh SHALL 在启动服务前检查 `/app/env.yaml` 是否存在
 - **WHEN** 启动 Fava 后台进程后
 - **THEN** 脚本等待短暂时间后检查进程是否存活
 - **THEN** 进程未存活时输出错误信息并退出
+
+## ADDED Requirements
 
 ### Requirement: 容器必须以非 root 用户运行
 Dockerfile MUST 创建非 root 用户（如 `appuser`，UID 1000）并使用 `USER` 指令切换。应用目录 MUST 设置正确的文件权限。
@@ -78,9 +78,7 @@ docker/nginx.conf MUST 在 HTTPS server 块中添加安全响应头。
 - **WHEN** 客户端收到 HTTPS 响应
 - **THEN** 响应包含 `Strict-Transport-Security: max-age=31536000; includeSubDomains`
 - **THEN** 响应包含 `X-Content-Type-Options: nosniff`
-- **THEN** 响应包含 `X-Frame-Options: SAMEORIGIN`
-- **THEN** 响应包含 `Referrer-Policy` 和 `Permissions-Policy`
-- **THEN** 响应包含 `Content-Security-Policy`
+- **THEN** 响应包含 `X-Frame-Options: DENY`
 
 ### Requirement: Nginx SSL/TLS 配置必须加固
 docker/nginx.conf MUST 使用强加密配置。
@@ -97,7 +95,7 @@ docker/nginx.conf MUST 使用强加密配置。
 
 #### Scenario: 主依赖版本固定
 - **WHEN** 检查 `requirements.txt`
-- **THEN** 每个依赖包含 `>=最低版本,<下一大版本` 范围约束
+- **THEN** 每个依赖包含 `>=最低版本` 约束
 
 #### Scenario: Web 依赖版本固定
 - **WHEN** 检查 `web/requirements.txt`

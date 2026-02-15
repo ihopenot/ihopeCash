@@ -1,38 +1,3 @@
-## ADDED Requirements
-
-### Requirement: BillManager 必须提供邮件账单下载功能
-BillManager 类 SHALL 提供 `download_bills(passwords=None)` 方法,调用 mail.py 的 DownloadFiles 函数下载邮件账单。默认参数 MUST 使用 `None` 而非可变对象 `[]`。
-
-#### Scenario: 成功下载账单
-- **WHEN** 调用 `manager.download_bills()`
-- **THEN** 系统调用 mail.DownloadFiles() 下载账单到 rawdata 目录
-
-#### Scenario: 下载失败时抛出异常
-- **WHEN** 邮件下载过程发生错误
-- **THEN** 系统使用 `raise RuntimeError(...) from e` 抛出异常，保留原始堆栈信息
-
-### Requirement: BillManager 必须封装 bean-identify 命令
-BillManager 类 SHALL 提供 `bean_identify()` 方法,执行 bean-identify 命令识别文件类型。
-
-#### Scenario: 成功识别文件
-- **WHEN** 调用 `manager.bean_identify()`
-- **THEN** 系统执行 bean-identify 命令并返回输出
-
-#### Scenario: 识别失败时抛出异常
-- **WHEN** bean-identify 命令返回非零退出码
-- **THEN** 系统抛出异常并包含错误信息
-
-### Requirement: BillManager 必须检查月份目录是否存在
-BillManager 类 SHALL 提供 `month_directory_exists(year, month)` 方法,检查月份目录是否存在。
-
-#### Scenario: 月份目录存在
-- **WHEN** 调用 `manager.month_directory_exists("2024", "12")` 且目录存在
-- **THEN** 返回 True
-
-#### Scenario: 月份目录不存在
-- **WHEN** 调用 `manager.month_directory_exists("2024", "12")` 且目录不存在
-- **THEN** 返回 False
-
 ## MODIFIED Requirements
 
 ### Requirement: BillManager 必须封装 bean-extract 命令
@@ -57,6 +22,17 @@ BillManager 类 SHALL 提供 `bean_archive()` 方法,执行 bean-file 命令归�
 #### Scenario: 归档失败时抛出异常
 - **WHEN** bean-file 命令返回非零退出码
 - **THEN** 系统抛出 `RuntimeError` 异常并包含错误信息
+
+### Requirement: BillManager 必须提供邮件账单下载功能
+BillManager 类 SHALL 提供 `download_bills(passwords=None)` 方法,调用 mail.py 的 DownloadFiles 函数下载邮件账单。默认参数 MUST 使用 `None` 而非可变对象 `[]`。
+
+#### Scenario: 成功下载账单
+- **WHEN** 调用 `manager.download_bills()`
+- **THEN** 系统调用 mail.DownloadFiles() 下载账单到 rawdata 目录
+
+#### Scenario: 下载失败时抛出异常
+- **WHEN** 邮件下载过程发生错误
+- **THEN** 系统使用 `raise RuntimeError(...) from e` 抛出异常，保留原始堆栈信息
 
 ### Requirement: BillManager 必须管理年份目录结构
 BillManager 类 SHALL 提供 `ensure_year_directory(year)` 方法,确保年份目录存在并正确配置。所有文件路径拼接 MUST 使用 `os.path.join()` 而非硬编码 `/` 分隔符。所有文件操作 MUST 使用 `with` 语句管理文件句柄。仅创建空文件时 MUST 使用 `pathlib.Path.touch()`。
@@ -137,7 +113,7 @@ BillManager 类 SHALL 提供 `append_to_month(folder, name)` 方法,向已存在
 - **THEN** 使用 logging 记录完整异常堆栈
 - **THEN** 返回 `{"success": False, "message": "<错误信息>", "data": None}`
 
-## ADDED Requirements (Security & Code Quality)
+## ADDED Requirements
 
 ### Requirement: backend.py 模块级导入必须在文件顶部
 所有 `import` 语句（如 `import glob`, `from datetime import datetime`）MUST 放在文件顶部，不允许在函数内部延迟导入。

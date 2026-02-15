@@ -81,6 +81,7 @@
         </div>
     </div>
 
+    <script src="/static/auth.js"></script>
     <script>
     // ==================== 全局状态 ====================
     const STEPS = [
@@ -106,16 +107,6 @@
     let pendingSelectId = null; // 新增账户后自动选中的目标 select ID
 
     const ACCOUNT_TYPES = ['Assets', 'Liabilities', 'Income', 'Expenses', 'Equity'];
-
-    // ==================== 认证 ====================
-    function checkAuth() {
-        const token = localStorage.getItem('auth_token');
-        if (!token) { window.location.href = '/login'; return false; }
-        return true;
-    }
-    function getAuthHeaders() {
-        return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` };
-    }
 
     // ==================== 消息 ====================
     function showMessage(text, type = 'success') {
@@ -147,7 +138,7 @@
 
     function renderAccountSelect(id, value = '', label = '') {
         const accounts = getAllAccounts();
-        const options = accounts.map(a => `<option value="${a}" ${a === value ? 'selected' : ''}>${a}</option>`).join('');
+        const options = accounts.map(a => `<option value="${escapeHtml(a)}" ${a === value ? 'selected' : ''}>${escapeHtml(a)}</option>`).join('');
         return `
             <div class="flex items-center gap-2">
                 <div class="flex-1">
@@ -168,7 +159,7 @@
             const currentVal = sel.value;
             const options = ['<option value="">-- 请选择账户 --</option>'];
             for (const a of accounts) {
-                options.push(`<option value="${a}" ${a === currentVal ? 'selected' : ''}>${a}</option>`);
+                options.push(`<option value="${escapeHtml(a)}" ${a === currentVal ? 'selected' : ''}>${escapeHtml(a)}</option>`);
             }
             sel.innerHTML = options.join('');
         });
@@ -318,15 +309,15 @@
         const imap = email.imap || {};
         return `<div class="grid grid-cols-2 gap-4">
             <div><label class="block text-sm font-medium text-gray-600 mb-1">IMAP 服务器</label>
-            <input type="text" id="s1_host" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${imap.host || 'imap.qq.com'}"></div>
+            <input type="text" id="s1_host" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${escapeHtml(imap.host || 'imap.qq.com')}"></div>
             <div><label class="block text-sm font-medium text-gray-600 mb-1">端口</label>
-            <input type="number" id="s1_port" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${imap.port || 993}"></div>
+            <input type="number" id="s1_port" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${escapeHtml(String(imap.port || 993))}"></div>
             <div><label class="block text-sm font-medium text-gray-600 mb-1">用户名</label>
-            <input type="text" id="s1_username" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${imap.username || ''}"></div>
+            <input type="text" id="s1_username" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${escapeHtml(imap.username || '')}"></div>
             <div><label class="block text-sm font-medium text-gray-600 mb-1">密码</label>
-            <input type="password" id="s1_password" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${imap.password || ''}"></div>
+            <input type="password" id="s1_password" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${escapeHtml(imap.password || '')}"></div>
             <div class="col-span-2"><label class="block text-sm font-medium text-gray-600 mb-1">邮箱文件夹</label>
-            <input type="text" id="s1_mailbox" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${imap.mailbox || 'Bills'}"></div>
+            <input type="text" id="s1_mailbox" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${escapeHtml(imap.mailbox || 'Bills')}"></div>
         </div>`;
     }
     function saveStep1() {
@@ -490,7 +481,7 @@
     }
     function filterRowHtml(value = '') {
         return `<div class="flex items-center gap-2">
-            <input type="text" class="filter-item flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${value}">
+            <input type="text" class="filter-item flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${escapeHtml(value)}">
             <button type="button" class="text-gray-400 hover:text-red-500 transition p-1" onclick="this.parentElement.remove()">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
@@ -530,15 +521,15 @@
         </div>`;
     }
     function cardAccountRowHtml(type = 'Assets', mid = '', suffix = '') {
-        const typeOptions = ACCOUNT_TYPES.map(t => `<option value="${t}" ${t === type ? 'selected' : ''}>${t}</option>`).join('');
+        const typeOptions = ACCOUNT_TYPES.map(t => `<option value="${escapeHtml(t)}" ${t === type ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('');
         return `<div class="card-acc-row border border-gray-200 rounded-lg p-3 space-y-2">
             <div class="grid grid-cols-3 gap-2">
                 <div><label class="block text-xs text-gray-500 mb-1">分类</label>
                 <select class="ca-type w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm bg-white">${typeOptions}</select></div>
                 <div><label class="block text-xs text-gray-500 mb-1">中间名称</label>
-                <input type="text" class="ca-mid w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm" value="${mid}" placeholder="如 BOC:Card"></div>
+                <input type="text" class="ca-mid w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm" value="${escapeHtml(mid)}" placeholder="如 BOC:Card"></div>
                 <div><label class="block text-xs text-gray-500 mb-1">4位字符</label>
-                <input type="text" class="ca-suffix w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm" value="${suffix}" maxlength="4" placeholder="如 1234"></div>
+                <input type="text" class="ca-suffix w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm" value="${escapeHtml(suffix)}" maxlength="4" placeholder="如 1234"></div>
             </div>
             <div class="flex items-center justify-between">
                 <span class="ca-preview text-xs font-mono text-gray-500"></span>
@@ -623,12 +614,12 @@
             </div>
             <div class="grid grid-cols-2 gap-2">
                 <div><label class="block text-xs text-gray-500 mb-1">payee_keywords (逗号分隔)</label>
-                <input type="text" class="mp-payee w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm" value="${(data.payee_keywords||[]).join(', ')}"></div>
+                <input type="text" class="mp-payee w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm" value="${escapeHtml((data.payee_keywords||[]).join(', '))}"></div>
                 <div><label class="block text-xs text-gray-500 mb-1">narration_keywords (逗号分隔)</label>
-                <input type="text" class="mp-narration w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm" value="${(data.narration_keywords||[]).join(', ')}"></div>
+                <input type="text" class="mp-narration w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm" value="${escapeHtml((data.narration_keywords||[]).join(', '))}"></div>
                 <div>${renderAccountSelect('mp_acc_' + Date.now() + Math.random().toString(36).slice(2, 6), accVal, 'account')}</div>
                 <div><label class="block text-xs text-gray-500 mb-1">tags (逗号分隔)</label>
-                <input type="text" class="mp-tags w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm" value="${(data.tags||[]).join(', ')}"></div>
+                <input type="text" class="mp-tags w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm" value="${escapeHtml((data.tags||[]).join(', '))}"></div>
             </div>
         </div>`;
     }
@@ -668,7 +659,7 @@
             <div class="flex-1">
                 <select id="${id}" class="account-select w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
                     <option value="">-- 请选择账户 --</option>
-                    ${getAllAccounts().map(a => `<option value="${a}" ${a === value ? 'selected' : ''}>${a}</option>`).join('')}
+                    ${getAllAccounts().map(a => `<option value="${escapeHtml(a)}" ${a === value ? 'selected' : ''}>${escapeHtml(a)}</option>`).join('')}
                 </select>
             </div>
             <button type="button" class="add-acc-btn text-sm text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap" data-target="${id}">+ 新增</button>
@@ -692,37 +683,37 @@
 
         // 邮箱
         const imap = setupConfig.email?.imap || {};
-        sections.push({ step: 0, title: '邮箱配置', content: `${imap.host || '-'}:${imap.port || '-'} / ${imap.username || '-'} / ${imap.mailbox || '-'}` });
+        sections.push({ step: 0, title: '邮箱配置', content: `${escapeHtml(imap.host || '-')}:${escapeHtml(String(imap.port || '-'))} / ${escapeHtml(imap.username || '-')} / ${escapeHtml(imap.mailbox || '-')}` });
 
         // 通用
-        sections.push({ step: 1, title: '通用账户', content: `支出: ${setupConfig.unknown_expense_account || '-'}<br>收入: ${setupConfig.unknown_income_account || '-'}` });
+        sections.push({ step: 1, title: '通用账户', content: `支出: ${escapeHtml(setupConfig.unknown_expense_account || '-')}<br>收入: ${escapeHtml(setupConfig.unknown_income_account || '-')}` });
 
         // 支付宝
         const alipay = setupConfig.importers?.alipay || {};
-        sections.push({ step: 2, title: '支付宝', content: Object.entries(alipay).filter(([k]) => k !== 'category_mapping').map(([k, v]) => `${k}: ${v || '-'}`).join('<br>') });
+        sections.push({ step: 2, title: '支付宝', content: Object.entries(alipay).filter(([k]) => k !== 'category_mapping').map(([k, v]) => `${escapeHtml(k)}: ${escapeHtml(v || '-')}`).join('<br>') });
 
         // 微信
         const wechat = setupConfig.importers?.wechat || {};
-        sections.push({ step: 3, title: '微信', content: Object.entries(wechat).map(([k, v]) => `${k}: ${v || '-'}`).join('<br>') });
+        sections.push({ step: 3, title: '微信', content: Object.entries(wechat).map(([k, v]) => `${escapeHtml(k)}: ${escapeHtml(v || '-')}`).join('<br>') });
 
         // 清华饭卡
-        sections.push({ step: 4, title: '清华饭卡', content: `account: ${setupConfig.importers?.thu_ecard?.account || '-'}` });
+        sections.push({ step: 4, title: '清华饭卡', content: `account: ${escapeHtml(setupConfig.importers?.thu_ecard?.account || '-')}` });
 
         // HSBC HK
         const hsbc = setupConfig.importers?.hsbc_hk || {};
-        sections.push({ step: 5, title: 'HSBC HK', content: `use_cnh: ${hsbc.use_cnh || false}<br>One: ${hsbc.account_mapping?.One || '-'}<br>PULSE: ${hsbc.account_mapping?.PULSE || '-'}` });
+        sections.push({ step: 5, title: 'HSBC HK', content: `use_cnh: ${hsbc.use_cnh || false}<br>One: ${escapeHtml(hsbc.account_mapping?.One || '-')}<br>PULSE: ${escapeHtml(hsbc.account_mapping?.PULSE || '-')}` });
 
         // 交易摘要过滤
         const wl = setupConfig.importers?.card_narration_whitelist || [];
         const bl = setupConfig.importers?.card_narration_blacklist || [];
-        sections.push({ step: 6, title: '交易摘要过滤', content: `白名单: ${wl.join(', ') || '-'}<br>黑名单: ${bl.join(', ') || '-'}` });
+        sections.push({ step: 6, title: '交易摘要过滤', content: `白名单: ${escapeHtml(wl.join(', ') || '-')}<br>黑名单: ${escapeHtml(bl.join(', ') || '-')}` });
 
         // 卡号映射
         const ca = setupConfig.card_accounts || {};
         let caText = '';
         for (const [t, m] of Object.entries(ca)) {
             for (const [mid, sfxs] of Object.entries(m)) {
-                for (const s of sfxs) caText += `${t}:${mid}${s}<br>`;
+                for (const s of sfxs) caText += `${escapeHtml(t)}:${escapeHtml(mid)}${escapeHtml(s)}<br>`;
             }
         }
         sections.push({ step: 7, title: '卡号账户映射', content: caText || '-' });
@@ -733,14 +724,14 @@
 
         // 余额账户
         const ba = setupConfig.balance_accounts || [];
-        sections.push({ step: 9, title: '余额账户', content: ba.length ? ba.join('<br>') : '-' });
+        sections.push({ step: 9, title: '余额账户', content: ba.length ? ba.map(b => escapeHtml(b)).join('<br>') : '-' });
 
         // 新增账户
         let newAccHtml = '';
         if (tempAccounts.length > 0) {
             newAccHtml = `<div class="border border-blue-200 rounded-lg p-3 bg-blue-50 mt-3">
                 <h4 class="text-sm font-semibold text-blue-800 mb-2">将新增 ${tempAccounts.length} 个账户</h4>
-                <div class="text-xs text-blue-700 font-mono space-y-0.5">${tempAccounts.map(a => `<div>${a.account_type}:${a.path}</div>`).join('')}</div>
+                <div class="text-xs text-blue-700 font-mono space-y-0.5">${tempAccounts.map(a => `<div>${escapeHtml(a.account_type)}:${escapeHtml(a.path)}</div>`).join('')}</div>
             </div>`;
         }
 
@@ -748,7 +739,7 @@
             ${sections.map(s => `<div class="border border-gray-200 rounded-lg p-3 flex justify-between items-start">
                 <div class="flex-1 min-w-0">
                     <h4 class="text-sm font-semibold text-gray-700">${s.title}</h4>
-                    <div class="text-xs text-gray-500 mt-1 font-mono leading-relaxed">${s.content}</div>
+                    <div class="text-xs text-gray-500 mt-1 font-mono leading-relaxed">${s.content}</div><!-- content is pre-escaped -->
                 </div>
                 <button type="button" class="text-xs text-blue-600 hover:text-blue-700 font-medium ml-3 shrink-0" onclick="goToStep(${s.step})">修改</button>
             </div>`).join('')}
@@ -829,7 +820,7 @@
             ]);
 
             if (accResp.status === 401 || defResp.status === 401) {
-                localStorage.removeItem('auth_token');
+                clearAuthToken();
                 window.location.href = '/login';
                 return;
             }

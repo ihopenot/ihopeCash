@@ -135,6 +135,7 @@
         </div>
     </div>
 
+    <script src="/static/auth.js"></script>
     <script>
         // ==================== 全局变量 ====================
         let config = null;
@@ -162,25 +163,6 @@
             append: '向已有月份添加新交易'
         };
 
-        // ==================== 认证 ====================
-
-        function checkAuth() {
-            const token = localStorage.getItem('auth_token');
-            if (!token) {
-                window.location.href = '/login';
-                return false;
-            }
-            return true;
-        }
-
-        function getAuthHeaders() {
-            const token = localStorage.getItem('auth_token');
-            return {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            };
-        }
-
         // ==================== 初始化 ====================
 
         async function init() {
@@ -192,7 +174,7 @@
                 });
 
                 if (response.status === 401) {
-                    localStorage.removeItem('auth_token');
+                    clearAuthToken();
                     window.location.href = '/login';
                     return;
                 }
@@ -232,11 +214,11 @@
                 const div = document.createElement('div');
                 div.className = 'flex items-center gap-3';
                 div.innerHTML = `
-                    <label class="w-1/2 text-sm text-gray-600 truncate" title="${account}">${account}</label>
+                    <label class="w-1/2 text-sm text-gray-600 truncate" title="${escapeHtml(account)}">${escapeHtml(account)}</label>
                     <div class="flex-1 flex items-center gap-2">
                         <input
                             type="text"
-                            data-account="${account}"
+                            data-account="${escapeHtml(account)}"
                             class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
                             placeholder="输入余额"
                             required
@@ -270,7 +252,7 @@
                     type="password"
                     class="password-field flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
                     placeholder="输入密码"
-                    value="${value}"
+                    value="${escapeHtml(value)}"
                 />
                 <button type="button" class="remove-password-btn text-gray-400 hover:text-red-500 transition p-1" title="删除">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -346,7 +328,7 @@
                 });
 
                 if (response.status === 401) {
-                    localStorage.removeItem('auth_token');
+                    clearAuthToken();
                     window.location.href = '/login';
                     return;
                 }
@@ -372,15 +354,14 @@
         // ==================== WebSocket ====================
 
         function connectWebSocket(taskId) {
-            const token = localStorage.getItem('auth_token');
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/ws/progress?token=${token}`;
+            const wsUrl = `${protocol}//${window.location.host}/ws/progress`;
 
             ws = new WebSocket(wsUrl);
 
             ws.onopen = () => {
                 addLog('连接已建立', 'success');
-                ws.send(JSON.stringify({ task_id: taskId }));
+                ws.send(JSON.stringify({ token: getAuthToken(), task_id: taskId }));
             };
 
             ws.onmessage = (event) => {
@@ -505,9 +486,7 @@
         // ==================== 退出登录 ====================
 
         logoutBtn.addEventListener('click', () => {
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('token_expire_at');
-            window.location.href = '/login';
+            logout();
         });
 
         // ==================== 页面加载 ====================
