@@ -27,10 +27,15 @@ echo "启动 Nginx..."
 nginx
 echo "Nginx 已启动"
 
+# ==================== 迁移检查 ====================
+
+echo "检查数据迁移..."
+python /app/migrate.py
+
 # ==================== 启动 Fava ====================
 
 echo "启动 Fava..."
-fava /app/main.bean --host 127.0.0.1 --port 5000 --prefix /fava &
+fava /app/data/main.bean --host 127.0.0.1 --port 5000 --prefix /fava &
 echo "Fava 已启动 (127.0.0.1:5000, prefix=/fava)"
 
 # ==================== 启动 Uvicorn ====================

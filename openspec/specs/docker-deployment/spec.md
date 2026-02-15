@@ -65,7 +65,7 @@
 #### Scenario: 账本数据持久化
 - **WHEN** docker-compose.yml 中定义 volumes
 - **THEN** 宿主机的 `data/`、`rawdata/`、`archive/` 目录分别挂载到容器内对应路径
-- **THEN** 宿主机的 `main.bean` 和 `accounts.bean` 挂载到容器内对应路径
+- **THEN** `main.bean` 和 `accounts.bean` 已包含在 `data/` 目录内，不需要单独挂载
 
 #### Scenario: SSL 证书目录可选挂载
 - **WHEN** 用户在宿主机有 `certs/` 目录
@@ -76,7 +76,7 @@
 
 #### Scenario: Fava 以路径前缀模式运行
 - **WHEN** 容器启动 Fava 进程
-- **THEN** Fava 以 `fava main.bean --host 127.0.0.1 --port 5000 --prefix /fava` 方式启动
+- **THEN** Fava 以 `fava data/main.bean --host 127.0.0.1 --port 5000 --prefix /fava` 方式启动（指向 `data/main.bean` 而非根目录 `main.bean`）
 - **THEN** Fava 仅监听容器内部的 127.0.0.1，不直接对外暴露
 
 ### Requirement: 必须提供 .dockerignore 排除无关文件

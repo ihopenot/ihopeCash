@@ -7,8 +7,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import datetime
+import re
 import sys
 import os
 
@@ -41,6 +42,43 @@ if warnings:
         print(f"  - {warning}")
     print()
 
+# ==================== 启动事件 ====================
+
+def ensure_default_bean_files():
+    """确保默认 bean 文件存在"""
+    data_path = config.data_path
+    os.makedirs(data_path, exist_ok=True)
+    
+    # data/main.bean
+    main_bean = os.path.join(data_path, "main.bean")
+    if not os.path.exists(main_bean):
+        with open(main_bean, "w", encoding="utf-8") as f:
+            f.write('option "title" "ihopeCash"\n')
+            f.write('option "operating_currency" "CNY"\n')
+            f.write('\n')
+            f.write('include "accounts.bean"\n')
+            f.write('include "balance.bean"\n')
+        print(f"已创建默认文件: {main_bean}")
+    
+    # data/accounts.bean
+    accounts_bean = os.path.join(data_path, "accounts.bean")
+    if not os.path.exists(accounts_bean):
+        open(accounts_bean, "w", encoding="utf-8").close()
+        print(f"已创建默认文件: {accounts_bean}")
+    
+    # data/balance.bean
+    balance_bean = os.path.join(data_path, "balance.bean")
+    if not os.path.exists(balance_bean):
+        open(balance_bean, "w", encoding="utf-8").close()
+        print(f"已创建默认文件: {balance_bean}")
+
+
+@app.on_event("startup")
+async def startup_event():
+    """应用启动时确保默认文件存在"""
+    ensure_default_bean_files()
+
+
 # 挂载静态文件
 app.mount("/static", StaticFiles(directory="web/static"), name="static")
 
@@ -65,6 +103,26 @@ class ChangePasswordRequest(BaseModel):
     """修改密码请求"""
     current_password: str
     new_password: str
+
+
+class LedgerInfoRequest(BaseModel):
+    """账本信息更新请求"""
+    title: str
+    operating_currency: str
+
+
+class AddAccountRequest(BaseModel):
+    """新增账户请求"""
+    account_type: str  # Assets, Liabilities, Income, Expenses, Equity
+    path: str  # 如 BoC:Card:1234
+    currencies: str = ""  # 货币，留空支持所有货币
+    comment: str = ""  # 备注
+
+
+class CloseAccountRequest(BaseModel):
+    """关闭账户请求"""
+    account_name: str  # 完整账户名，如 Assets:BoC:Card:1234
+    date: str = ""  # 关闭日期，留空默认当天
 
 
 # ==================== API 端点 ====================
@@ -288,6 +346,335 @@ async def websocket_progress(websocket: WebSocket, token: str = None):
         # 清理连接
         if 'task_id' in locals():
             await task_manager.remove_websocket(task_id, websocket)
+
+
+# ==================== 账本管理 API ====================
+
+VALID_ACCOUNT_TYPES = ["Assets", "Liabilities", "Income", "Expenses", "Equity"]
+
+
+def _get_main_bean_path() -> str:
+    """获取 main.bean 路径"""
+    return os.path.join(config.data_path, "main.bean")
+
+
+def _get_accounts_bean_path() -> str:
+    """获取 accounts.bean 路径"""
+    return os.path.join(config.data_path, "accounts.bean")
+
+
+def _parse_ledger_info() -> dict:
+    """使用 beancount.loader 解析账本信息
+    
+    Returns:
+        {"title": str, "operating_currency": str}
+    """
+    from beancount import loader
+    
+    main_bean = _get_main_bean_path()
+    entries, errors, options_map = loader.load_file(main_bean)
+    
+    return {
+        "title": options_map.get("title", "ihopeCash"),
+        "operating_currency": options_map.get("operating_currency", ["CNY"])[0] if options_map.get("operating_currency") else "CNY"
+    }
+
+
+def _parse_accounts() -> list:
+    """使用 beancount.loader 解析所有账户
+    
+    Returns:
+        账户列表，每个元素为 dict
+    """
+    from beancount import loader
+    from beancount.core import data as beancount_data
+    
+    main_bean = _get_main_bean_path()
+    entries, errors, options_map = loader.load_file(main_bean)
+    
+    # 收集所有 Open 和 Close entries
+    open_entries = {}
+    close_entries = {}
+    
+    for entry in entries:
+        if isinstance(entry, beancount_data.Open):
+            open_entries[entry.account] = entry
+        elif isinstance(entry, beancount_data.Close):
+            close_entries[entry.account] = entry
+    
+    # 从 accounts.bean 文件读取行尾注释
+    comments = _extract_comments_from_file(_get_accounts_bean_path())
+    
+    # 构建账户列表
+    accounts = []
+    for account_name, open_entry in open_entries.items():
+        is_closed = account_name in close_entries
+        account_info = {
+            "date": str(open_entry.date),
+            "name": account_name,
+            "currencies": list(open_entry.currencies) if open_entry.currencies else [],
+            "comment": comments.get(account_name, ""),
+            "status": "closed" if is_closed else "open",
+        }
+        if is_closed:
+            account_info["close_date"] = str(close_entries[account_name].date)
+        accounts.append(account_info)
+    
+    return accounts
+
+
+def _ensure_trailing_newline(file_path: str):
+    """确保文件以换行符结尾，避免追加内容时与最后一行连在一起"""
+    if not os.path.exists(file_path):
+        return
+    with open(file_path, "rb") as f:
+        f.seek(0, 2)  # 移到文件末尾
+        if f.tell() == 0:
+            return  # 空文件
+        f.seek(-1, 2)  # 移到最后一个字节
+        if f.read(1) != b'\n':
+            with open(file_path, "a", encoding="utf-8") as fa:
+                fa.write("\n")
+
+
+def _extract_comments_from_file(file_path: str) -> dict:
+    """从 bean 文件中提取行尾注释
+    
+    Args:
+        file_path: bean 文件路径
+        
+    Returns:
+        {账户名: 注释} 的字典
+    """
+    comments = {}
+    if not os.path.exists(file_path):
+        return comments
+    
+    with open(file_path, "r", encoding="utf-8") as f:
+        for line in f:
+            # 匹配 open 指令行的注释: YYYY-MM-DD open Account:Name [CURRENCY] ; 注释
+            match = re.match(
+                r'\d{4}-\d{2}-\d{2}\s+open\s+(\S+)(?:\s+\S+)?\s*;\s*(.+)$',
+                line.strip()
+            )
+            if match:
+                comments[match.group(1)] = match.group(2).strip()
+    
+    return comments
+
+
+@app.get("/api/ledger/info")
+async def get_ledger_info(user: dict = Depends(get_current_user)):
+    """获取账本基本信息
+    
+    需要认证
+    
+    Returns:
+        账本名称和主货币
+    """
+    try:
+        info = _parse_ledger_info()
+        return info
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"读取账本信息失败: {str(e)}")
+
+
+@app.put("/api/ledger/info")
+async def update_ledger_info(
+    request: LedgerInfoRequest,
+    user: dict = Depends(get_current_user)
+):
+    """更新账本基本信息
+    
+    需要认证
+    
+    Args:
+        request: 包含 title 和 operating_currency
+        
+    Returns:
+        操作结果
+    """
+    if not request.title.strip():
+        raise HTTPException(status_code=400, detail="账本名称不能为空")
+    
+    if not request.operating_currency.strip():
+        raise HTTPException(status_code=400, detail="主货币不能为空")
+    
+    try:
+        main_bean = _get_main_bean_path()
+        with open(main_bean, "r", encoding="utf-8") as f:
+            content = f.read()
+        
+        # 替换 title
+        content = re.sub(
+            r'option\s+"title"\s+"[^"]*"',
+            f'option "title" "{request.title.strip()}"',
+            content
+        )
+        
+        # 替换 operating_currency
+        content = re.sub(
+            r'option\s+"operating_currency"\s+"[^"]*"',
+            f'option "operating_currency" "{request.operating_currency.strip()}"',
+            content
+        )
+        
+        with open(main_bean, "w", encoding="utf-8") as f:
+            f.write(content)
+        
+        return {"success": True, "message": "账本信息已更新"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新账本信息失败: {str(e)}")
+
+
+@app.get("/api/ledger/accounts")
+async def get_ledger_accounts(user: dict = Depends(get_current_user)):
+    """获取所有账户列表
+    
+    需要认证
+    
+    Returns:
+        按五大类型分组的账户列表
+    """
+    try:
+        accounts = _parse_accounts()
+        
+        # 按类型分组
+        grouped = {t: [] for t in VALID_ACCOUNT_TYPES}
+        for acc in accounts:
+            top_type = acc["name"].split(":")[0]
+            if top_type in grouped:
+                grouped[top_type].append(acc)
+        
+        return {"accounts": grouped}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"读取账户列表失败: {str(e)}")
+
+
+@app.post("/api/ledger/accounts")
+async def add_ledger_account(
+    request: AddAccountRequest,
+    user: dict = Depends(get_current_user)
+):
+    """新增账户
+    
+    需要认证
+    
+    Args:
+        request: 新增账户请求
+        
+    Returns:
+        操作结果
+    """
+    # 校验账户类型
+    if request.account_type not in VALID_ACCOUNT_TYPES:
+        raise HTTPException(status_code=400, detail="无效的账户类型")
+    
+    # 校验路径不为空
+    path = request.path.strip()
+    if not path:
+        raise HTTPException(status_code=400, detail="账户路径不能为空")
+    
+    # 校验路径格式
+    if path.startswith(":") or path.endswith(":"):
+        raise HTTPException(status_code=400, detail="路径格式不正确")
+    if "::" in path:
+        raise HTTPException(status_code=400, detail="路径格式不正确")
+    
+    # 校验路径各段命名规则
+    # 第一段（即完整账户名的第二级）必须以大写字母或数字开头
+    # 后续每一段不能以小写字母开头（大写字母、数字、中文均可）
+    segments = path.split(":")
+    first_segment = segments[0]
+    if not re.match(r'^[A-Z0-9]', first_segment):
+        raise HTTPException(status_code=400, detail="账户路径的第一段必须以大写字母或数字开头")
+    
+    for i, segment in enumerate(segments[1:], start=2):
+        if not segment:
+            continue
+        if re.match(r'^[a-z]', segment):
+            raise HTTPException(status_code=400, detail=f"账户路径第{i}段 \"{segment}\" 不能以小写字母开头")
+    
+    # 构建完整账户名
+    full_account = f"{request.account_type}:{path}"
+    
+    # 检查账户是否已存在
+    try:
+        existing_accounts = _parse_accounts()
+        for acc in existing_accounts:
+            if acc["name"] == full_account:
+                raise HTTPException(status_code=400, detail="账户已存在")
+    except HTTPException:
+        raise
+    except Exception:
+        pass  # 解析失败时跳过重复检查
+    
+    # 构建 open 指令
+    currencies_part = f" {request.currencies.strip()}" if request.currencies.strip() else ""
+    comment_part = f" ; {request.comment.strip()}" if request.comment.strip() else ""
+    line = f"1999-01-01 open {full_account}{currencies_part}{comment_part}\n"
+    
+    try:
+        accounts_bean = _get_accounts_bean_path()
+        _ensure_trailing_newline(accounts_bean)
+        with open(accounts_bean, "a", encoding="utf-8") as f:
+            f.write(line)
+        return {"success": True, "message": f"账户 {full_account} 已创建"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"创建账户失败: {str(e)}")
+
+
+@app.post("/api/ledger/accounts/close")
+async def close_ledger_account(
+    request: CloseAccountRequest,
+    user: dict = Depends(get_current_user)
+):
+    """关闭账户
+    
+    需要认证
+    
+    Args:
+        request: 关闭账户请求
+        
+    Returns:
+        操作结果
+    """
+    account_name = request.account_name.strip()
+    if not account_name:
+        raise HTTPException(status_code=400, detail="账户名不能为空")
+    
+    # 确定关闭日期
+    close_date = request.date.strip() if request.date.strip() else datetime.date.today().isoformat()
+    
+    # 校验账户存在且未关闭
+    try:
+        accounts = _parse_accounts()
+        found = False
+        for acc in accounts:
+            if acc["name"] == account_name:
+                found = True
+                if acc["status"] == "closed":
+                    raise HTTPException(status_code=400, detail="账户已关闭")
+                break
+        
+        if not found:
+            raise HTTPException(status_code=400, detail="账户不存在")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"校验账户失败: {str(e)}")
+    
+    # 追加 close 指令
+    line = f"{close_date} close {account_name}\n"
+    
+    try:
+        accounts_bean = _get_accounts_bean_path()
+        _ensure_trailing_newline(accounts_bean)
+        with open(accounts_bean, "a", encoding="utf-8") as f:
+            f.write(line)
+        return {"success": True, "message": f"账户 {account_name} 已关闭"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"关闭账户失败: {str(e)}")
 
 
 # ==================== CORS 中间件（可选）====================

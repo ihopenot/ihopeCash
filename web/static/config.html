@@ -26,26 +26,94 @@
     </nav>
 
     <div class="max-w-3xl mx-auto px-4 sm:px-6 py-6">
-        <!-- 警告提示 -->
-        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
-            <div class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-amber-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.168 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
-                <p class="text-sm text-amber-800">由于 Beancount 无法动态修改账户名，账户内有数据的情况下请<strong>不要修改账户名</strong>。修改后可能导致数据不一致。</p>
-            </div>
-        </div>
-
         <!-- 消息提示 -->
         <div id="messageBar" class="hidden rounded-xl p-4 mb-5 transition-all"></div>
 
         <!-- Tab 切换 -->
         <div class="flex space-x-1 bg-gray-100 p-1 rounded-xl mb-5">
+            <button class="tab-btn flex-1 py-2 text-sm font-medium rounded-lg transition" data-tab="ledger">账本</button>
             <button class="tab-btn flex-1 py-2 text-sm font-medium rounded-lg transition" data-tab="basic">基础配置</button>
             <button class="tab-btn flex-1 py-2 text-sm font-medium rounded-lg transition" data-tab="advanced">高级配置</button>
             <button class="tab-btn flex-1 py-2 text-sm font-medium rounded-lg transition" data-tab="password">修改密码</button>
         </div>
 
+        <!-- ==================== Tab 0: 账本 ==================== -->
+        <div id="tab-ledger" class="tab-content space-y-5">
+            <!-- 基本信息 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 class="text-base font-semibold text-gray-800 mb-4">基本信息</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">账本名称</label>
+                        <input type="text" id="ledger_title" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" placeholder="ihopeCash">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">主货币</label>
+                        <input type="text" id="ledger_currency" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" placeholder="CNY">
+                    </div>
+                </div>
+                <div class="flex justify-end mt-4">
+                    <button id="saveLedgerInfoBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-xl transition-all shadow-sm">保存基本信息</button>
+                </div>
+            </div>
+
+            <!-- 账户管理 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 class="text-base font-semibold text-gray-800 mb-4">账户管理</h3>
+
+                <!-- 新增账户表单 -->
+                <div class="border border-gray-200 rounded-lg p-4 mb-5 bg-gray-50">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3">新增账户</h4>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">账户类型</label>
+                            <select id="newAccType" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm bg-white">
+                                <option value="Assets">Assets (资产)</option>
+                                <option value="Liabilities">Liabilities (负债)</option>
+                                <option value="Income">Income (收入)</option>
+                                <option value="Expenses">Expenses (支出)</option>
+                                <option value="Equity">Equity (权益)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">账户路径</label>
+                            <input type="text" id="newAccPath" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" placeholder="例如 BoC:Card:1234">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">货币</label>
+                            <input type="text" id="newAccCurrency" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" placeholder="留空支持所有货币">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">备注</label>
+                            <input type="text" id="newAccComment" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" placeholder="描述信息">
+                        </div>
+                    </div>
+                    <!-- 校验错误提示 -->
+                    <p id="newAccError" class="text-xs text-red-500 mt-2 hidden"></p>
+                    <!-- 实时预览 -->
+                    <div id="newAccPreview" class="mt-3 px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs font-mono text-gray-600 hidden"></div>
+                    <div class="flex justify-end mt-3">
+                        <button id="addNewAccBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-all text-sm">添加账户</button>
+                    </div>
+                </div>
+
+                <!-- 账户列表 -->
+                <div id="accountGroupsList" class="space-y-3">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+        </div>
+
         <!-- ==================== Tab 1: 基础配置 ==================== -->
-        <div id="tab-basic" class="tab-content space-y-5">
+        <div id="tab-basic" class="tab-content space-y-5 hidden">
+            <!-- 警告提示 -->
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-amber-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.168 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                    <p class="text-sm text-amber-800">由于 Beancount 无法动态修改账户名，账户内有数据的情况下请<strong>不要修改账户名</strong>。修改后可能导致数据不一致。</p>
+                </div>
+            </div>
+
             <!-- 余额账户 -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
                 <div class="flex justify-between items-center mb-4">
@@ -110,25 +178,19 @@
             <!-- 支付宝导入器 -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
                 <h3 class="text-base font-semibold text-gray-800 mb-4">支付宝 (importers.alipay)</h3>
-                <div class="space-y-3" id="alipay_fields">
-                    <!-- 动态生成 -->
-                </div>
+                <div class="space-y-3" id="alipay_fields"></div>
             </div>
 
             <!-- 微信导入器 -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
                 <h3 class="text-base font-semibold text-gray-800 mb-4">微信 (importers.wechat)</h3>
-                <div class="space-y-3" id="wechat_fields">
-                    <!-- 动态生成 -->
-                </div>
+                <div class="space-y-3" id="wechat_fields"></div>
             </div>
 
             <!-- 清华饭卡导入器 -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
                 <h3 class="text-base font-semibold text-gray-800 mb-4">清华饭卡 (importers.thu_ecard)</h3>
-                <div class="space-y-3" id="thu_ecard_fields">
-                    <!-- 动态生成 -->
-                </div>
+                <div class="space-y-3" id="thu_ecard_fields"></div>
             </div>
 
             <!-- HSBC HK 导入器 -->
@@ -182,9 +244,7 @@
                     <h3 class="text-base font-semibold text-gray-800">交易匹配规则 (detail_mappings)</h3>
                     <button id="addMappingBtn" type="button" class="text-sm text-blue-600 hover:text-blue-700 font-medium">+ 添加规则</button>
                 </div>
-                <div id="detailMappingsList" class="space-y-3">
-                    <!-- 动态生成 -->
-                </div>
+                <div id="detailMappingsList" class="space-y-3"></div>
             </div>
 
             <!-- 保存按钮 -->
@@ -216,9 +276,36 @@
         </div>
     </div>
 
+    <!-- 关闭账户确认对话框 -->
+    <div id="closeAccountModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <h3 class="text-base font-semibold text-gray-800 mb-3">确认关闭账户</h3>
+            <p class="text-sm text-gray-600 mb-2">确定要关闭以下账户吗？</p>
+            <p id="closeAccountName" class="text-sm font-medium text-gray-900 mb-4"></p>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-600 mb-1">关闭日期</label>
+                <input type="date" id="closeAccountDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm">
+            </div>
+            <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                <p class="text-xs text-amber-800">关闭后该账户不能再记录新交易，且关闭日期后账户余额必须为零。此操作不可撤销。</p>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button id="closeAccountCancel" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition">取消</button>
+                <button id="closeAccountConfirm" class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-all text-sm">确认关闭</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ==================== 全局 ====================
         let configData = null;
+        const ACCOUNT_TYPE_LABELS = {
+            'Assets': '资产',
+            'Liabilities': '负债',
+            'Income': '收入',
+            'Expenses': '支出',
+            'Equity': '权益'
+        };
 
         function checkAuth() {
             const token = localStorage.getItem('auth_token');
@@ -248,23 +335,293 @@
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const tab = btn.dataset.tab;
-                // 切换 active 样式
                 document.querySelectorAll('.tab-btn').forEach(b => {
                     b.classList.remove('bg-white', 'shadow-sm', 'text-gray-900');
                     b.classList.add('text-gray-500');
                 });
                 btn.classList.add('bg-white', 'shadow-sm', 'text-gray-900');
                 btn.classList.remove('text-gray-500');
-                // 切换内容
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
                 document.getElementById(`tab-${tab}`).classList.remove('hidden');
             });
         });
 
-        // 默认选中第一个 tab
-        document.querySelector('.tab-btn[data-tab="basic"]').click();
+        // 默认选中账本 tab
+        document.querySelector('.tab-btn[data-tab="ledger"]').click();
 
-        // ==================== 加载配置 ====================
+        // ==================== 账本 Tab: 基本信息 ====================
+
+        async function loadLedgerInfo() {
+            try {
+                const resp = await fetch('/api/ledger/info', { headers: getAuthHeaders() });
+                if (resp.status === 401) { localStorage.removeItem('auth_token'); window.location.href = '/login'; return; }
+                const data = await resp.json();
+                document.getElementById('ledger_title').value = data.title || '';
+                document.getElementById('ledger_currency').value = data.operating_currency || '';
+            } catch (e) {
+                console.error('Load ledger info error:', e);
+            }
+        }
+
+        document.getElementById('saveLedgerInfoBtn').addEventListener('click', async () => {
+            const title = document.getElementById('ledger_title').value.trim();
+            const currency = document.getElementById('ledger_currency').value.trim();
+            if (!title) { showMessage('账本名称不能为空', 'error'); return; }
+            if (!currency) { showMessage('主货币不能为空', 'error'); return; }
+            try {
+                const resp = await fetch('/api/ledger/info', {
+                    method: 'PUT',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ title, operating_currency: currency })
+                });
+                const result = await resp.json();
+                if (resp.ok && result.success) {
+                    showMessage(result.message);
+                } else {
+                    showMessage(result.detail || '保存失败', 'error');
+                }
+            } catch (e) {
+                showMessage('保存失败: ' + e.message, 'error');
+            }
+        });
+
+        // ==================== 账本 Tab: 账户管理 ====================
+
+        let ledgerAccounts = {};
+
+        async function loadLedgerAccounts() {
+            try {
+                const resp = await fetch('/api/ledger/accounts', { headers: getAuthHeaders() });
+                if (resp.status === 401) { localStorage.removeItem('auth_token'); window.location.href = '/login'; return; }
+                const data = await resp.json();
+                ledgerAccounts = data.accounts || {};
+                renderAccountGroups();
+            } catch (e) {
+                console.error('Load accounts error:', e);
+            }
+        }
+
+        function renderAccountGroups() {
+            const container = document.getElementById('accountGroupsList');
+            container.innerHTML = '';
+
+            const types = ['Assets', 'Liabilities', 'Income', 'Expenses', 'Equity'];
+            types.forEach(type => {
+                // 排序：开启的账户在前，关闭的账户在后
+                const accounts = (ledgerAccounts[type] || []).slice().sort((a, b) => {
+                    if (a.status === 'open' && b.status === 'closed') return -1;
+                    if (a.status === 'closed' && b.status === 'open') return 1;
+                    return 0;
+                });
+                const label = ACCOUNT_TYPE_LABELS[type];
+
+                const group = document.createElement('div');
+                group.className = 'border border-gray-200 rounded-lg overflow-hidden';
+                group.innerHTML = `
+                    <button class="group-toggle w-full flex justify-between items-center px-4 py-3 bg-gray-50 hover:bg-gray-100 transition text-left">
+                        <span class="text-sm font-semibold text-gray-700">${type} (${label}) <span class="font-normal text-gray-400">${accounts.length} 个账户</span></span>
+                        <svg class="group-arrow w-4 h-4 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div class="group-content hidden">
+                        ${accounts.length === 0
+                            ? '<p class="px-4 py-3 text-sm text-gray-400">暂无账户</p>'
+                            : accounts.map(acc => renderAccountRow(acc)).join('')
+                        }
+                    </div>
+                `;
+                container.appendChild(group);
+
+                // 折叠/展开
+                const toggle = group.querySelector('.group-toggle');
+                const content = group.querySelector('.group-content');
+                const arrow = group.querySelector('.group-arrow');
+                toggle.addEventListener('click', () => {
+                    content.classList.toggle('hidden');
+                    arrow.classList.toggle('rotate-180');
+                });
+
+                // 默认展开有账户的分组
+                if (accounts.length > 0) {
+                    content.classList.remove('hidden');
+                    arrow.classList.add('rotate-180');
+                }
+
+                // 绑定关闭按钮事件
+                group.querySelectorAll('.close-acc-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openCloseModal(btn.dataset.account, btn.dataset.comment);
+                    });
+                });
+            });
+        }
+
+        function renderAccountRow(acc) {
+            const isClosed = acc.status === 'closed';
+            const nameClass = isClosed ? 'text-gray-400 line-through' : 'text-gray-800';
+            const currencyText = acc.currencies.length > 0 ? acc.currencies.join(', ') : '*';
+            const commentText = acc.comment ? `<span class="text-gray-400 ml-2">${acc.comment}</span>` : '';
+            const closeBtn = isClosed
+                ? `<span class="text-xs text-gray-400">已关闭 (${acc.close_date})</span>`
+                : `<button class="close-acc-btn text-xs text-red-500 hover:text-red-700 font-medium transition" data-account="${acc.name}" data-comment="${acc.comment || ''}">关闭</button>`;
+
+            return `
+                <div class="flex items-center justify-between px-4 py-2 border-t border-gray-100 hover:bg-gray-50">
+                    <div class="flex-1 min-w-0">
+                        <span class="text-sm ${nameClass} font-mono">${acc.name}</span>
+                        <span class="text-xs text-gray-400 ml-2">${currencyText}</span>
+                        ${commentText}
+                    </div>
+                    <div class="shrink-0 ml-3">${closeBtn}</div>
+                </div>
+            `;
+        }
+
+        // ==================== 新增账户 ====================
+
+        // 实时预览
+        function updateNewAccPreview() {
+            const type = document.getElementById('newAccType').value;
+            const path = document.getElementById('newAccPath').value.trim();
+            const currency = document.getElementById('newAccCurrency').value.trim();
+            const comment = document.getElementById('newAccComment').value.trim();
+            const preview = document.getElementById('newAccPreview');
+
+            if (!path) {
+                preview.classList.add('hidden');
+                return;
+            }
+
+            const currencyPart = currency ? ` ${currency}` : '';
+            const commentPart = comment ? ` ; ${comment}` : '';
+            preview.textContent = `1999-01-01 open ${type}:${path}${currencyPart}${commentPart}`;
+            preview.classList.remove('hidden');
+        }
+
+        document.getElementById('newAccType').addEventListener('change', updateNewAccPreview);
+        document.getElementById('newAccPath').addEventListener('input', updateNewAccPreview);
+        document.getElementById('newAccCurrency').addEventListener('input', updateNewAccPreview);
+        document.getElementById('newAccComment').addEventListener('input', updateNewAccPreview);
+
+        // 前端校验
+        function validateAccountPath(path) {
+            if (!path) return '账户路径不能为空';
+            if (path.startsWith(':') || path.endsWith(':')) return '路径格式不正确';
+            if (path.includes('::')) return '路径格式不正确';
+
+            const segments = path.split(':');
+            // 第一段（完整账户名的第二级）必须以大写字母或数字开头
+            if (!/^[A-Z0-9]/.test(segments[0])) return '第一段名称必须以大写字母或数字开头';
+            // 后续每一段不能以小写字母开头
+            for (let i = 1; i < segments.length; i++) {
+                if (/^[a-z]/.test(segments[i])) return `第${i + 1}段 "${segments[i]}" 不能以小写字母开头`;
+            }
+
+            return null; // 通过
+        }
+
+        // 实时校验提示
+        document.getElementById('newAccPath').addEventListener('input', () => {
+            const path = document.getElementById('newAccPath').value.trim();
+            const errorEl = document.getElementById('newAccError');
+            if (!path) { errorEl.classList.add('hidden'); return; }
+            const error = validateAccountPath(path);
+            if (error) {
+                errorEl.textContent = error;
+                errorEl.classList.remove('hidden');
+            } else {
+                errorEl.classList.add('hidden');
+            }
+        });
+
+        // 提交新增
+        document.getElementById('addNewAccBtn').addEventListener('click', async () => {
+            const type = document.getElementById('newAccType').value;
+            const path = document.getElementById('newAccPath').value.trim();
+            const currency = document.getElementById('newAccCurrency').value.trim();
+            const comment = document.getElementById('newAccComment').value.trim();
+            const errorEl = document.getElementById('newAccError');
+
+            const error = validateAccountPath(path);
+            if (error) {
+                errorEl.textContent = error;
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const resp = await fetch('/api/ledger/accounts', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ account_type: type, path, currencies: currency, comment })
+                });
+                const result = await resp.json();
+                if (resp.ok && result.success) {
+                    showMessage(result.message);
+                    // 清空表单
+                    document.getElementById('newAccPath').value = '';
+                    document.getElementById('newAccCurrency').value = '';
+                    document.getElementById('newAccComment').value = '';
+                    document.getElementById('newAccPreview').classList.add('hidden');
+                    errorEl.classList.add('hidden');
+                    // 刷新列表
+                    await loadLedgerAccounts();
+                } else {
+                    showMessage(result.detail || '添加失败', 'error');
+                }
+            } catch (e) {
+                showMessage('添加失败: ' + e.message, 'error');
+            }
+        });
+
+        // ==================== 关闭账户 ====================
+
+        let pendingCloseAccount = '';
+
+        function openCloseModal(accountName, comment) {
+            pendingCloseAccount = accountName;
+            document.getElementById('closeAccountName').textContent = accountName + (comment ? ` (${comment})` : '');
+            document.getElementById('closeAccountDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('closeAccountModal').classList.remove('hidden');
+        }
+
+        document.getElementById('closeAccountCancel').addEventListener('click', () => {
+            document.getElementById('closeAccountModal').classList.add('hidden');
+            pendingCloseAccount = '';
+        });
+
+        document.getElementById('closeAccountModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('closeAccountModal').classList.add('hidden');
+                pendingCloseAccount = '';
+            }
+        });
+
+        document.getElementById('closeAccountConfirm').addEventListener('click', async () => {
+            if (!pendingCloseAccount) return;
+            const date = document.getElementById('closeAccountDate').value;
+
+            try {
+                const resp = await fetch('/api/ledger/accounts/close', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ account_name: pendingCloseAccount, date })
+                });
+                const result = await resp.json();
+                if (resp.ok && result.success) {
+                    showMessage(result.message);
+                    document.getElementById('closeAccountModal').classList.add('hidden');
+                    pendingCloseAccount = '';
+                    await loadLedgerAccounts();
+                } else {
+                    showMessage(result.detail || '关闭失败', 'error');
+                }
+            } catch (e) {
+                showMessage('关闭失败: ' + e.message, 'error');
+            }
+        });
+
+        // ==================== 加载配置 (基础+高级) ====================
 
         async function loadConfig() {
             if (!checkAuth()) return;
@@ -283,18 +640,16 @@
         // ==================== Tab 1: 基础配置渲染 ====================
 
         function renderBasicTab() {
-            // 余额账户
             const accounts = configData.system?.balance_accounts || [];
             const list = document.getElementById('accountsList');
             list.innerHTML = '';
             accounts.forEach(acc => addAccountRow(acc));
 
-            // 邮箱
             const imap = configData.email?.imap || {};
             document.getElementById('email_host').value = imap.host || '';
             document.getElementById('email_port').value = imap.port || '';
             document.getElementById('email_username').value = imap.username || '';
-            document.getElementById('email_password').value = ''; // 脱敏，不显示
+            document.getElementById('email_password').value = '';
             document.getElementById('email_mailbox').value = imap.mailbox || '';
         }
 
@@ -317,27 +672,20 @@
         // ==================== Tab 2: 高级配置渲染 ====================
 
         function renderAdvancedTab() {
-            // 通用账户
             document.getElementById('unknown_expense_account').value = configData.unknown_expense_account || '';
             document.getElementById('unknown_income_account').value = configData.unknown_income_account || '';
 
-            // 导入器字段
             renderImporterFields('alipay_fields', configData.importers?.alipay || {});
             renderImporterFields('wechat_fields', configData.importers?.wechat || {});
             renderImporterFields('thu_ecard_fields', configData.importers?.thu_ecard || {});
             renderHsbcFields();
 
-            // 白名单/黑名单
             renderStringList('whitelist_items', configData.importers?.card_narration_whitelist || []);
             renderStringList('blacklist_items', configData.importers?.card_narration_blacklist || []);
 
-            // 卡号账户映射
             renderCardAccounts();
-
-            // 交易匹配规则
             renderDetailMappings();
 
-            // 绑定添加按钮
             document.querySelectorAll('.add-list-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     addStringListRow(btn.dataset.target);
@@ -349,7 +697,7 @@
             const container = document.getElementById(containerId);
             container.innerHTML = '';
             for (const [key, value] of Object.entries(data)) {
-                if (key === 'category_mapping' || key === 'account_mapping') continue; // 复杂对象单独处理
+                if (key === 'category_mapping' || key === 'account_mapping') continue;
                 const div = document.createElement('div');
                 const inputType = typeof value === 'boolean' ? 'checkbox' : 'text';
                 if (inputType === 'checkbox') {
@@ -460,7 +808,7 @@
                         host: document.getElementById('email_host').value.trim(),
                         port: parseInt(document.getElementById('email_port').value) || 993,
                         username: document.getElementById('email_username').value.trim(),
-                        password: document.getElementById('email_password').value, // 空值后端会跳过
+                        password: document.getElementById('email_password').value,
                         mailbox: document.getElementById('email_mailbox').value.trim()
                     }
                 }
@@ -508,7 +856,6 @@
             const wechat = collectImporterData('wechat_fields');
             const thu_ecard = collectImporterData('thu_ecard_fields');
 
-            // hsbc_hk: account_mapping 从 JSON textarea 解析
             let hsbc_account_mapping = {};
             const hsbcJsonError = document.getElementById('hsbcAccountMappingJsonError');
             try {
@@ -524,7 +871,6 @@
                 account_mapping: hsbc_account_mapping
             };
 
-            // card_accounts 从 JSON textarea 解析
             let card_accounts = {};
             const jsonError = document.getElementById('cardAccountsJsonError');
             try {
@@ -565,7 +911,7 @@
                 const result = await resp.json();
                 if (result.success) {
                     showMessage(result.message);
-                    await loadConfig(); // 重新加载
+                    await loadConfig();
                 } else {
                     showMessage(result.detail || '保存失败', 'error');
                 }
@@ -632,7 +978,15 @@
 
         // ==================== 初始化 ====================
 
-        window.addEventListener('DOMContentLoaded', loadConfig);
+        window.addEventListener('DOMContentLoaded', async () => {
+            if (!checkAuth()) return;
+            // 并行加载所有数据
+            await Promise.all([
+                loadLedgerInfo(),
+                loadLedgerAccounts(),
+                loadConfig()
+            ]);
+        });
     </script>
 </body>
 </html>

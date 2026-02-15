@@ -110,11 +110,12 @@ class BillManager:
             # 创建年份 _.bean 文件
             open(f"{year_path}/_.bean", "w").write("\n")
             
-            # 更新 main.bean
-            newline = f'include "{self.data_path}/{year}/_.bean"\n'
-            main_content = open("main.bean", encoding="utf8").read()
+            # 更新 data/main.bean
+            main_bean_path = f"{self.data_path}/main.bean"
+            newline = f'include "{year}/_.bean"\n'
+            main_content = open(main_bean_path, encoding="utf8").read()
             if newline not in main_content:
-                open("main.bean", "a", encoding="utf8").write(newline)
+                open(main_bean_path, "a", encoding="utf8").write(newline)
         
         return year_path
     
