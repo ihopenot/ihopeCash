@@ -4,13 +4,10 @@ services:
     container_name: ihopecash
     restart: unless-stopped
     ports:
-      - "80:80"
       - "443:443"
     volumes:
-      - ./env.yaml:/app/env.yaml
       - ./data:/app/data
-      - ./rawdata:/app/rawdata
-      - ./archive:/app/archive
+      - ./env.yaml:/app/env.yaml
       - ./certs:/app/certs
     deploy:
       resources:

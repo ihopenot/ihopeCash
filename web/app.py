@@ -121,9 +121,11 @@ async def check_setup_middleware(request: Request, call_next):
 # ==================== 启动事件 ====================
 
 def ensure_default_bean_files():
-    """确保默认 bean 文件存在"""
+    """确保默认 bean 文件和目录存在"""
+    for d in [config.data_path, config.rawdata_path, config.archive_path]:
+        os.makedirs(d, exist_ok=True)
+    
     data_path = config.data_path
-    os.makedirs(data_path, exist_ok=True)
     
     # data/main.bean
     main_bean = os.path.join(data_path, "main.bean")

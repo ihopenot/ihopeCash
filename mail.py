@@ -68,7 +68,7 @@ def decrypt_zip(data, password_itr, extract_suffix=".csv", zipfile_cls=pyzipper.
                             data = source.read()
                             logger.info('Successfully extracted file with config password')
                             return ret_name, data
-                    except (RuntimeError, pyzipper.BadZipFile):
+                    except Exception:
                         continue
 
                 for password in password_itr:
@@ -77,7 +77,7 @@ def decrypt_zip(data, password_itr, extract_suffix=".csv", zipfile_cls=pyzipper.
                             data = source.read()
                             logger.info('Successfully extracted file with brute-force password')
                             return ret_name, data
-                    except (RuntimeError, pyzipper.BadZipFile):
+                    except Exception:
                         continue
     return None
 

@@ -166,11 +166,17 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-600 mb-1">默认支出账户</label>
-                        <input type="text" id="unknown_expense_account" class="cfg-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm">
+                        <div id="unknown_expense_account_container" class="flex items-center gap-2">
+                            <select id="unknown_expense_account" class="account-select cfg-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm bg-white"></select>
+                            <button type="button" class="add-acc-btn text-sm text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap">+ 新增</button>
+                        </div>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-600 mb-1">默认收入账户</label>
-                        <input type="text" id="unknown_income_account" class="cfg-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm">
+                        <div id="unknown_income_account_container" class="flex items-center gap-2">
+                            <select id="unknown_income_account" class="account-select cfg-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm bg-white"></select>
+                            <button type="button" class="add-acc-btn text-sm text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap">+ 新增</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -203,11 +209,17 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-600 mb-1">One 账户</label>
-                        <input type="text" id="hsbc_account_one" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" placeholder="例如 Assets:Bank:HSBC">
+                        <div id="hsbc_account_one_container" class="flex items-center gap-2">
+                            <select id="hsbc_account_one" class="account-select w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm bg-white"></select>
+                            <button type="button" class="add-acc-btn text-sm text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap">+ 新增</button>
+                        </div>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-600 mb-1">PULSE 账户</label>
-                        <input type="text" id="hsbc_account_pulse" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" placeholder="例如 Liabilities:CreditCards:HSBC:Pulse">
+                        <div id="hsbc_account_pulse_container" class="flex items-center gap-2">
+                            <select id="hsbc_account_pulse" class="account-select w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm bg-white"></select>
+                            <button type="button" class="add-acc-btn text-sm text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap">+ 新增</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -283,6 +295,42 @@
         </div>
     </div>
 
+    <!-- 新增账户对话框 (从 select 触发) -->
+    <div id="addAccountModal" class="fixed inset-0 bg-black/30 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+            <h3 class="text-base font-semibold text-gray-800 mb-3">新增账户</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">账户类型</label>
+                    <select id="modalNewAccType" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+                        <option value="Assets">Assets (资产)</option>
+                        <option value="Liabilities">Liabilities (负债)</option>
+                        <option value="Income">Income (收入)</option>
+                        <option value="Expenses">Expenses (支出)</option>
+                        <option value="Equity">Equity (权益)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">账户路径</label>
+                    <input type="text" id="modalNewAccPath" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="如 Bank:BOC">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">货币 (可选)</label>
+                    <input type="text" id="modalNewAccCurrency" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="如 CNY" value="CNY">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">备注 (可选)</label>
+                    <input type="text" id="modalNewAccComment" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="">
+                </div>
+            </div>
+            <p id="modalNewAccError" class="text-xs text-red-500 mt-2 hidden"></p>
+            <div class="flex justify-end gap-2 mt-4">
+                <button id="modalNewAccCancel" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition">取消</button>
+                <button id="modalNewAccConfirm" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">确认添加</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 关闭账户确认对话框 -->
     <div id="closeAccountModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
         <div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
@@ -307,6 +355,8 @@
     <script>
         // ==================== 全局 ====================
         let configData = null;
+        let serverAccounts = {};
+        const ACCOUNT_TYPES = ['Assets', 'Liabilities', 'Income', 'Expenses', 'Equity'];
         const ACCOUNT_TYPE_LABELS = {
             'Assets': '资产',
             'Liabilities': '负债',
@@ -624,12 +674,55 @@
                 const resp = await fetch('/api/config/full', { headers: getAuthHeaders() });
                 if (resp.status === 401) { clearAuthToken(); window.location.href = '/login'; return; }
                 configData = await resp.json();
+
+                // Load accounts for selects
+                const accResp = await fetch('/api/ledger/accounts', { headers: getAuthHeaders() });
+                const accData = await accResp.json();
+                serverAccounts = accData.accounts || {};
+
                 renderBasicTab();
                 renderAdvancedTab();
+                refreshAllSelects();
             } catch (e) {
                 console.error('Load config error:', e);
                 showMessage('加载配置失败: ' + e.message, 'error');
             }
+        }
+
+        // ==================== 账户选择工具函数 ====================
+
+        function getAllAccounts() {
+            const all = [];
+            for (const type of ACCOUNT_TYPES) {
+                for (const acc of (serverAccounts[type] || [])) {
+                    if (acc.status === 'open') all.push(acc.name);
+                }
+            }
+            return all.sort();
+        }
+
+        function refreshAllSelects() {
+            const accounts = getAllAccounts();
+            document.querySelectorAll('.account-select').forEach(sel => {
+                const currentVal = sel.value;
+                const options = ['<option value="">-- 请选择账户 --</option>'];
+                for (const a of accounts) {
+                    options.push(`<option value="${escapeHtml(a)}" ${a === currentVal ? 'selected' : ''}>${escapeHtml(a)}</option>`);
+                }
+                sel.innerHTML = options.join('');
+            });
+        }
+
+        function accountSelectHtml(currentValue = '', extraClass = '') {
+            const accounts = getAllAccounts();
+            const options = ['<option value="">-- 请选择账户 --</option>'];
+            for (const a of accounts) {
+                options.push(`<option value="${escapeHtml(a)}" ${a === currentValue ? 'selected' : ''}>${escapeHtml(a)}</option>`);
+            }
+            return `<div class="flex items-center gap-2 flex-1">
+                <select class="account-select ${extraClass} w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm bg-white">${options.join('')}</select>
+                <button type="button" class="add-acc-btn text-sm text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap">+ 新增</button>
+            </div>`;
         }
 
         // ==================== Tab 1: 基础配置渲染 ====================
@@ -653,7 +746,7 @@
             const div = document.createElement('div');
             div.className = 'flex items-center gap-2';
             div.innerHTML = `
-                <input type="text" class="account-input flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" value="${escapeHtml(value)}" placeholder="例如 Assets:BoC:Card:XXX">
+                ${accountSelectHtml(value, 'account-input')}
                 <button type="button" class="remove-btn text-gray-400 hover:text-red-500 transition p-1">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
@@ -667,6 +760,7 @@
         // ==================== Tab 2: 高级配置渲染 ====================
 
         function renderAdvancedTab() {
+            // Set select values (options populated by refreshAllSelects)
             document.getElementById('unknown_expense_account').value = configData.unknown_expense_account || '';
             document.getElementById('unknown_income_account').value = configData.unknown_income_account || '';
 
@@ -763,7 +857,7 @@
             for (const [category, middleMap] of Object.entries(data)) {
                 for (const [middleName, suffixes] of Object.entries(middleMap)) {
                     for (const suffix of suffixes) {
-                        addCardAccountRow(category, middleName, String(suffix));
+                        addCardAccountRow(category, middleName.replace(/:$/, ''), String(suffix));
                     }
                 }
             }
@@ -910,8 +1004,8 @@
 
         function collectBasicConfig() {
             const accounts = [];
-            document.querySelectorAll('#accountsList .account-input').forEach(input => {
-                const val = input.value.trim();
+            document.querySelectorAll('#accountsList .account-input').forEach(sel => {
+                const val = sel.value.trim();
                 if (val) accounts.push(val);
             });
 
@@ -1079,6 +1173,84 @@
                 }
             } catch (e) {
                 showMessage('修改失败: ' + e.message, 'error');
+            }
+        });
+
+        // ==================== 新增账户弹窗 (从 select 触发) ====================
+
+        let pendingAddAccSelect = null;
+
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('.add-acc-btn');
+            if (!btn) return;
+            // Determine which select triggered this
+            const container = btn.closest('.flex');
+            const sel = container ? container.querySelector('.account-select') : null;
+            pendingAddAccSelect = sel;
+            // Reset modal
+            document.getElementById('modalNewAccPath').value = '';
+            document.getElementById('modalNewAccCurrency').value = 'CNY';
+            document.getElementById('modalNewAccComment').value = '';
+            document.getElementById('modalNewAccError').classList.add('hidden');
+            document.getElementById('addAccountModal').classList.remove('hidden');
+        });
+
+        document.getElementById('modalNewAccCancel').addEventListener('click', () => {
+            document.getElementById('addAccountModal').classList.add('hidden');
+            pendingAddAccSelect = null;
+        });
+
+        document.getElementById('addAccountModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('addAccountModal').classList.add('hidden');
+                pendingAddAccSelect = null;
+            }
+        });
+
+        document.getElementById('modalNewAccConfirm').addEventListener('click', async () => {
+            const type = document.getElementById('modalNewAccType').value;
+            const path = document.getElementById('modalNewAccPath').value.trim();
+            const currency = document.getElementById('modalNewAccCurrency').value.trim();
+            const comment = document.getElementById('modalNewAccComment').value.trim();
+            const errorEl = document.getElementById('modalNewAccError');
+
+            const error = validateAccountPath(path);
+            if (error) {
+                errorEl.textContent = error;
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const resp = await fetch('/api/ledger/accounts', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ account_type: type, path, currencies: currency, comment })
+                });
+                const result = await resp.json();
+                if (resp.ok && result.success) {
+                    showMessage(result.message);
+                    // Update serverAccounts
+                    const accResp = await fetch('/api/ledger/accounts', { headers: getAuthHeaders() });
+                    const accData = await accResp.json();
+                    serverAccounts = accData.accounts || {};
+                    const newFullName = `${type}:${path}`;
+                    refreshAllSelects();
+                    // Auto-select in the triggering select
+                    if (pendingAddAccSelect) {
+                        pendingAddAccSelect.value = newFullName;
+                    }
+                    document.getElementById('addAccountModal').classList.add('hidden');
+                    pendingAddAccSelect = null;
+                    // Also refresh ledger accounts list
+                    await loadLedgerAccounts();
+                } else {
+                    errorEl.textContent = result.detail || '添加失败';
+                    errorEl.classList.remove('hidden');
+                }
+            } catch (e) {
+                errorEl.textContent = '添加失败: ' + e.message;
+                errorEl.classList.remove('hidden');
             }
         });
 

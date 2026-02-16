@@ -11,11 +11,21 @@ if [ ! -f "/app/env.yaml" ]; then
 fi
 echo "检测到环境配置文件 env.yaml"
 
+# ==================== 创建必要目录 ====================
+
+mkdir -p /app/data/beancount/data /app/data/beancount/rawdata /app/data/beancount/archive
+
+# 首次运行时创建空 main.bean 占位文件
+if [ ! -f "/app/data/beancount/data/main.bean" ]; then
+    touch /app/data/beancount/data/main.bean
+    echo "已创建空的 main.bean 占位文件"
+fi
+
+# ==================== SSL 证书 ====================
+
 CERT_DIR="/app/certs"
 CERT_FILE="$CERT_DIR/cert.pem"
 KEY_FILE="$CERT_DIR/key.pem"
-
-# ==================== SSL 证书 ====================
 
 if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
     echo "未检测到 SSL 证书，正在生成自签证书..."
@@ -45,21 +55,8 @@ python /app/migrate.py
 # ==================== 启动 Fava ====================
 
 echo "启动 Fava..."
-fava /app/data/main.bean --host 127.0.0.1 --port 5000 --prefix /fava &
-echo "Fava 已启动 (127.0.0.1:5000, prefix=/fava)"
-
-# 等待 Fava 就绪
-echo "等待 Fava 就绪..."
-for i in $(seq 1 30); do
-    if curl -sf http://127.0.0.1:5000/fava/ > /dev/null 2>&1; then
-        echo "Fava 已就绪"
-        break
-    fi
-    if [ "$i" -eq 30 ]; then
-        echo "警告: Fava 未在 30 秒内就绪，继续启动 Web 服务"
-    fi
-    sleep 1
-done
+fava /app/data/beancount/data/main.bean --host 127.0.0.1 --port 5000 --prefix /fava &
+echo "Fava 已在后台启动 (127.0.0.1:5000, prefix=/fava)"
 
 # ==================== 启动 Uvicorn ====================
 

@@ -1,14 +1,8 @@
 .vscode
 .codebuddy
 
-archive/*
-data/*
-rawdata/*
+data/
 certs/
-
-accounts.bean
-beancount_config.py
-config.yaml
 env.yaml
 
 !*/.gitkeep

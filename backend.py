@@ -31,6 +31,7 @@ class BillManager:
             config: Config 实例
         """
         self.config = config
+        self.beancount_path = config.beancount_path
         self.data_path = config.data_path
         self.rawdata_path = config.rawdata_path
         self.archive_path = config.archive_path
@@ -52,7 +53,7 @@ class BillManager:
         cmd = ["git"] + args
         result = subprocess.run(
             cmd,
-            cwd=self.data_path,
+            cwd=self.beancount_path,
             capture_output=True,
             text=True
         )
@@ -61,14 +62,14 @@ class BillManager:
         return result
     
     def git_ensure_repo(self):
-        """检测并初始化 data git 仓库
+        """检测并初始化 beancount git 仓库
         
-        如果 data/.git 不存在，执行 git init，创建 .gitignore，并完成首次提交。
+        如果 beancount_path/.git 不存在，执行 git init，创建 .gitignore，并完成首次提交。
         
         Raises:
             RuntimeError: git 未安装或初始化失败
         """
-        git_dir = os.path.join(self.data_path, ".git")
+        git_dir = os.path.join(self.beancount_path, ".git")
         if os.path.exists(git_dir):
             return
         
@@ -87,7 +88,7 @@ class BillManager:
         self._run_git(["init"])
         
         # 创建 .gitignore
-        gitignore_path = os.path.join(self.data_path, ".gitignore")
+        gitignore_path = os.path.join(self.beancount_path, ".gitignore")
         with open(gitignore_path, "w", encoding="utf-8") as f:
             f.write(".ledger-period\n")
         
@@ -96,19 +97,19 @@ class BillManager:
         self._run_git(["commit", "-m", "初始化账本"])
     
     def git_is_clean(self) -> bool:
-        """检查 data git 工作区是否干净
+        """检查 beancount git 工作区是否干净
         
         Returns:
             True 表示工作区干净（无变更），False 表示有未提交变更。
-            如果 data/.git 不存在，返回 True。
+            如果 beancount_path/.git 不存在，返回 True。
         """
-        git_dir = os.path.join(self.data_path, ".git")
+        git_dir = os.path.join(self.beancount_path, ".git")
         if not os.path.exists(git_dir):
             return True
         
         result = subprocess.run(
             ["git", "status", "--porcelain"],
-            cwd=self.data_path,
+            cwd=self.beancount_path,
             capture_output=True,
             text=True
         )
@@ -132,7 +133,7 @@ class BillManager:
         执行 git checkout -- . 恢复已跟踪文件，git clean -fd 删除未跟踪文件，
         并清除 .ledger-period 文件。
         """
-        git_dir = os.path.join(self.data_path, ".git")
+        git_dir = os.path.join(self.beancount_path, ".git")
         if not os.path.exists(git_dir):
             return
         
@@ -450,7 +451,7 @@ include "total.bean"
         try:
             # 1. Git 提交上期变更
             send_progress(1, "git_commit", "running", "正在检查版本管理状态...")
-            git_dir = os.path.join(self.data_path, ".git")
+            git_dir = os.path.join(self.beancount_path, ".git")
             if not os.path.exists(git_dir):
                 send_progress(1, "git_commit", "running", "正在初始化版本管理...")
                 self.git_ensure_repo()

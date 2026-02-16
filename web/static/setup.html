@@ -133,6 +133,18 @@
             const fullName = `${acc.account_type}:${acc.path}`;
             if (!all.includes(fullName)) all.push(fullName);
         }
+        // Card accounts (from card_accounts config)
+        const ca = setupConfig.card_accounts || {};
+        for (const [type, midMap] of Object.entries(ca)) {
+            if (typeof midMap !== 'object') continue;
+            for (const [mid, suffixes] of Object.entries(midMap)) {
+                if (!Array.isArray(suffixes)) continue;
+                for (const suffix of suffixes) {
+                    const name = `${type}:${mid}${suffix}`;
+                    if (!all.includes(name)) all.push(name);
+                }
+            }
+        }
         return all.sort();
     }
 
