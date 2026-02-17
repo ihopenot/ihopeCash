@@ -344,25 +344,26 @@ include "total.bean"
         return month_path
     
     def record_balances(self, year: str, month: str, balances: Dict[str, str]):
-        """记录余额断言
+        """记录余额断言到对应账期的 others.bean
         
         Args:
             year: 年份
             month: 月份
             balances: 账户余额字典 {"账户名": "金额"}
         """
-        balance_file = os.path.join(self.data_path, "balance.bean")
+        others_file = os.path.join(self.data_path, year, month, "others.bean")
         
-        # 确保文件存在
-        if not os.path.exists(balance_file):
-            Path(balance_file).touch()
+        # 确保目录和文件存在
+        os.makedirs(os.path.dirname(others_file), exist_ok=True)
+        if not os.path.exists(others_file):
+            Path(others_file).touch()
         
         # 计算断言日期 (下个月1号)
         next_year = year if int(month) < 12 else str(int(year) + 1)
         next_month = str(1 if int(month) == 12 else (int(month) + 1)).rjust(2, '0')
         
-        # 写入余额
-        with open(balance_file, "a", encoding="utf-8") as f:
+        # 追加写入余额
+        with open(others_file, "a", encoding="utf-8") as f:
             for account, balance in balances.items():
                 f.write(f"{next_year}-{next_month}-01 balance {account} {balance} CNY\n")
     

@@ -135,7 +135,6 @@ def ensure_default_bean_files():
             f.write('option "operating_currency" "CNY"\n')
             f.write('\n')
             f.write('include "accounts.bean"\n')
-            f.write('include "balance.bean"\n')
         print(f"已创建默认文件: {main_bean}")
     
     # data/accounts.bean
@@ -144,11 +143,6 @@ def ensure_default_bean_files():
         open(accounts_bean, "w", encoding="utf-8").close()
         print(f"已创建默认文件: {accounts_bean}")
     
-    # data/balance.bean
-    balance_bean = os.path.join(data_path, "balance.bean")
-    if not os.path.exists(balance_bean):
-        open(balance_bean, "w", encoding="utf-8").close()
-        print(f"已创建默认文件: {balance_bean}")
 
 
 @app.on_event("startup")
