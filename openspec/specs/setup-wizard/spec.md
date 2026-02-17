@@ -237,7 +237,7 @@
 
 #### Scenario: 引导页需要登录
 - **WHEN** 未登录用户访问 /setup
-- **THEN** 页面检查 localStorage 中的 auth_token
+- **THEN** 页面检查 sessionStorage 中的 auth_token
 - **THEN** 如果没有 token，重定向到 /login
 
 ## ADDED Requirements (XSS Prevention)

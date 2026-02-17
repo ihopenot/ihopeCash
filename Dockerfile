@@ -6,10 +6,8 @@ RUN apt-get update && \
         nginx \
         openssl \
         curl \
+        git \
     && rm -rf /var/lib/apt/lists/*
-
-# 创建非 root 用户
-RUN useradd -m -u 1000 appuser
 
 WORKDIR /app
 
@@ -31,18 +29,11 @@ COPY docker/nginx.conf /etc/nginx/nginx.conf
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# 创建必要目录并设置权限
-RUN mkdir -p /app/certs /app/data /app/rawdata /app/archive && \
-    chown -R appuser:appuser /app && \
-    chown -R appuser:appuser /var/log/nginx && \
-    chown -R appuser:appuser /var/lib/nginx && \
-    chown -R appuser:appuser /run
-
-# 切换到非 root 用户
-USER appuser
+# 创建必要目录
+RUN mkdir -p /app/data
 
 # 暴露端口
-EXPOSE 80 443
+EXPOSE 443
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

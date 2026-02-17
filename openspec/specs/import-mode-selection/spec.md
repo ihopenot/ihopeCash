@@ -43,31 +43,31 @@ The system SHALL display explanatory text for each import mode in the UI.
 
 #### Scenario: Normal mode description shown
 - **WHEN** normal mode radio button is visible
-- **THEN** system displays "ℹ️ 通常模式: 目录已存在时报错"
+- **THEN** system displays "目录已存在时报错"
 
 #### Scenario: Force mode description shown
 - **WHEN** force mode radio button is visible
-- **THEN** system displays "ℹ️ 强制覆盖: 删除已有目录并重新创建"
+- **THEN** system displays "删除已有目录并重新创建"
 
 #### Scenario: Append mode description shown
 - **WHEN** append mode radio button is visible
-- **THEN** system displays "ℹ️ 追加模式: 向已有月份添加新交易"
+- **THEN** system displays "向已有月份添加新交易"
 
 ### Requirement: All modes execute full import workflow
 
-The system SHALL execute download, identify, extract, balance, and archive steps for all three modes.
+The system SHALL execute git_commit, download, identify, extract, balance, and archive steps for all three modes.
 
-#### Scenario: Normal mode executes 6 steps
+#### Scenario: Normal mode executes 7 steps
 - **WHEN** user submits normal mode import
-- **THEN** system executes all 6 steps: download, identify, create_dir, extract, balance, archive
+- **THEN** system executes all 7 steps: git_commit, download, identify, create_dir, extract, balance, archive
 
-#### Scenario: Force mode executes 6 steps
+#### Scenario: Force mode executes 7 steps
 - **WHEN** user submits force mode import
-- **THEN** system executes all 6 steps: download, identify, create_dir (with delete), extract, balance, archive
+- **THEN** system executes all 7 steps: git_commit, download, identify, create_dir (with delete), extract, balance, archive
 
-#### Scenario: Append mode executes 6 steps
+#### Scenario: Append mode executes 7 steps
 - **WHEN** user submits append mode import
-- **THEN** system executes all 6 steps: download, identify, append_file, extract, balance, archive
+- **THEN** system executes all 7 steps: git_commit, download, identify, append_file, extract, balance, archive
 
 ### Requirement: Append mode generates timestamped filenames
 
@@ -87,5 +87,5 @@ The system SHALL record balance assertions for append mode same as normal and fo
 
 #### Scenario: Append mode records balance
 - **WHEN** user submits append mode with balance values
-- **THEN** system writes balance assertions to balance.bean file
+- **THEN** system writes balance assertions to the month's others.bean file
 - **AND** balance format matches other modes

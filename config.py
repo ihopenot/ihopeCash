@@ -35,12 +35,12 @@ class Config:
             pass
         
         # 属性访问（便捷方式）
-        config.data_path              # "data"
-        config.rawdata_path           # "rawdata"
+        config.data_path              # "data/beancount/data"
+        config.rawdata_path           # "data/beancount/rawdata"
         config.balance_accounts       # [...]
         
         # 字典访问（灵活方式）
-        config["system"]["data_path"]       # "data"
+        config["system"]["beancount_path"]  # "data/beancount"
         config["email"]["imap"]["host"]     # "imap.qq.com"
         config["importers"]["alipay"]       # {...}
         
@@ -54,11 +54,11 @@ class Config:
         detail_mappings = config.get_detail_mappings()  # List[BillDetailMapping]
     """
     
-    def __init__(self, config_file: str = "config.yaml", env_file: str = "env.yaml"):
+    def __init__(self, config_file: str = "data/config.yaml", env_file: str = "env.yaml"):
         """初始化配置管理器
         
         Args:
-            config_file: 业务配置文件路径，默认为 config.yaml
+            config_file: 业务配置文件路径，默认为 data/config.yaml
             env_file: 环境配置文件路径，默认为 env.yaml
             
         Raises:
@@ -78,9 +78,7 @@ class Config:
         """
         return {
             "system": {
-                "data_path": "data",
-                "rawdata_path": "rawdata",
-                "archive_path": "archive",
+                "beancount_path": "data/beancount",
                 "balance_accounts": []
             },
             "email": {
@@ -218,7 +216,11 @@ class Config:
         if "system" in env_config:
             if "system" not in self._config:
                 self._config["system"] = {}
-            self._deep_override(self._config["system"], env_config["system"])
+            # 排除路径相关字段，路径由代码硬编码管理
+            env_system = {k: v for k, v in env_config["system"].items()
+                         if k not in ("beancount_path", "data_path", "rawdata_path", "archive_path")}
+            if env_system:
+                self._deep_override(self._config["system"], env_system)
         
         if "web" in env_config:
             if "web" not in self._config:
@@ -283,28 +285,38 @@ class Config:
         """返回配置的完整字典副本
         
         用于传递给需要 dict 的模块（如 mail.py, beancount_config.py）
+        会注入派生路径属性，确保下游模块获取正确路径。
         
         Returns:
             配置字典的深拷贝
         """
-        return copy.deepcopy(self._config)
+        d = copy.deepcopy(self._config)
+        d["data_path"] = self.data_path
+        d["rawdata_path"] = self.rawdata_path
+        d["archive_path"] = self.archive_path
+        return d
     
     # ==================== 系统配置属性 ====================
     
     @property
+    def beancount_path(self) -> str:
+        """Beancount 工作区根目录路径"""
+        return self._config.get("system", {}).get("beancount_path", "data/beancount")
+    
+    @property
     def data_path(self) -> str:
-        """数据目录路径"""
-        return self._config.get("system", {}).get("data_path", "data")
+        """数据目录路径（从 beancount_path 硬编码派生）"""
+        return os.path.join(self.beancount_path, "data").replace("\\", "/")
     
     @property
     def rawdata_path(self) -> str:
-        """原始数据目录路径"""
-        return self._config.get("system", {}).get("rawdata_path", "rawdata")
+        """原始数据目录路径（从 beancount_path 硬编码派生）"""
+        return os.path.join(self.beancount_path, "rawdata").replace("\\", "/")
     
     @property
     def archive_path(self) -> str:
-        """归档目录路径"""
-        return self._config.get("system", {}).get("archive_path", "archive")
+        """归档目录路径（从 beancount_path 硬编码派生）"""
+        return os.path.join(self.beancount_path, "archive").replace("\\", "/")
     
     @property
     def balance_accounts(self) -> List[str]:
@@ -423,13 +435,13 @@ class Config:
     
     # 受保护的顶层字段（PUT 时自动跳过）
     _PROTECTED_TOP_KEYS = {"web", "passwords", "pdf_passwords"}
-    # 受保护的 system 子字段
-    _PROTECTED_SYSTEM_KEYS = {"data_path", "rawdata_path", "archive_path"}
+    # 受保护的 system 子字段（路径由代码硬编码，不可通过 Web 修改）
+    _PROTECTED_SYSTEM_KEYS = {"beancount_path"}
     
     def get_editable_config(self) -> Dict[str, Any]:
         """返回脱敏后的可编辑配置
         
-        排除: web 节点、路径字段、passwords、pdf_passwords
+        排除: web 节点、beancount_path、passwords、pdf_passwords
         脱敏: email.imap.password 置为空字符串
         
         Returns:
@@ -538,9 +550,7 @@ class Config:
         defaults.pop("passwords", None)
         defaults.pop("pdf_passwords", None)
         if "system" in defaults:
-            defaults["system"].pop("data_path", None)
-            defaults["system"].pop("rawdata_path", None)
-            defaults["system"].pop("archive_path", None)
+            defaults["system"].pop("beancount_path", None)
         return defaults
     
     def complete_setup(self, config_data: Dict[str, Any], new_accounts: List[Dict[str, str]]):
@@ -554,9 +564,7 @@ class Config:
         # 移除可能从前端提交的 system 路径和 web 字段
         config_data.pop("web", None)
         if "system" in config_data:
-            config_data["system"].pop("data_path", None)
-            config_data["system"].pop("rawdata_path", None)
-            config_data["system"].pop("archive_path", None)
+            config_data["system"].pop("beancount_path", None)
         
         # 以默认配置为基础，用前端数据覆盖
         self._config = self._get_default_config()
@@ -571,10 +579,7 @@ class Config:
         save_config = copy.deepcopy(self._config)
         # 从保存的配置中移除 system 路径字段（这些来自 env.yaml）
         if "system" in save_config:
-            save_config["system"].pop("data_path", None)
-            save_config["system"].pop("rawdata_path", None)
-            save_config["system"].pop("archive_path", None)
-            # 如果 system 只剩空字典，保留它（因为有 balance_accounts）
+            save_config["system"].pop("beancount_path", None)
         # 移除 web 配置（来自 env.yaml）
         save_config.pop("web", None)
         

@@ -25,15 +25,13 @@
 
 #### Scenario: 资源限制配置
 - **WHEN** docker-compose.yml 中定义 deploy 节
-- **THEN** 设置内存限制（如 1g）和 CPU 限制（如 2）
+- **THEN** 设置内存限制（如 2G）和 CPU 限制（如 2）
 - **THEN** 设置 `restart: unless-stopped`
 
 #### Scenario: 日志配置
 - **WHEN** docker-compose.yml 中定义 logging 节
 - **THEN** 使用 json-file 驱动
 - **THEN** 设置 max-size 和 max-file 限制日志大小
-
-## ADDED Requirements
 
 ### Requirement: 入口脚本必须检查 env.yaml 存在性
 docker/entrypoint.sh SHALL 在启动服务前检查 `/app/env.yaml` 是否存在，不存在时报错退出。入口脚本 MUST 创建必要子目录并处理首次运行场景。
@@ -57,18 +55,6 @@ docker/entrypoint.sh SHALL 在启动服务前检查 `/app/env.yaml` 是否存在
 - **THEN** 脚本直接继续启动 Web 服务，不等待 Fava 就绪
 - **THEN** Fava 在后台异步启动
 
-### Requirement: Docker HEALTHCHECK 必须配置
-Dockerfile MUST 包含 HEALTHCHECK 指令，定期检查应用健康状态。
-
-#### Scenario: 健康检查通过
-- **WHEN** 应用正常运行
-- **THEN** HEALTHCHECK 命令返回成功（exit 0）
-
-#### Scenario: 健康检查失败
-- **WHEN** 应用无响应
-- **THEN** HEALTHCHECK 命令返回失败
-- **THEN** Docker 标记容器为 unhealthy
-
 ### Requirement: Nginx 必须配置安全 Headers
 docker/nginx.conf MUST 在 HTTPS server 块中添加安全响应头。CSP 策略 MUST 允许 Tailwind CDN。
 
@@ -85,33 +71,13 @@ docker/nginx.conf MUST 在 HTTPS server 块中添加安全响应头。CSP 策略
 - **THEN** `script-src` 包含 `https://cdn.tailwindcss.com`
 - **THEN** `style-src` 包含 `https://cdn.tailwindcss.com`
 
-### Requirement: Nginx SSL/TLS 配置必须加固
-docker/nginx.conf MUST 使用强加密配置。
+## REMOVED Requirements
 
-#### Scenario: TLS 协议和加密套件
-- **WHEN** 检查 nginx SSL 配置
-- **THEN** `ssl_protocols` 优先 TLSv1.3，保留 TLSv1.2 兼容
-- **THEN** `ssl_prefer_server_ciphers` 设为 on
-- **THEN** `ssl_ciphers` 使用 ECDHE 加密套件
-- **THEN** 配置 `ssl_session_cache` 和 `ssl_session_timeout`
+### Requirement: 容器必须以非 root 用户运行
+**Reason**: Volume 挂载权限问题导致容器启动失败，此项目为个人/小团队自部署工具，root 运行可接受
+**Migration**: 移除 Dockerfile 中 useradd、chown、USER appuser 相关行
 
-### Requirement: 依赖版本必须固定
-`requirements.txt` 和 `web/requirements.txt` 中所有依赖 MUST 指定版本范围约束。
-
-#### Scenario: 主依赖版本固定
-- **WHEN** 检查 `requirements.txt`
-- **THEN** 每个依赖包含 `>=最低版本,<下一大版本` 范围约束
-
-#### Scenario: Web 依赖版本固定
-- **WHEN** 检查 `web/requirements.txt`
-- **THEN** 每个依赖包含 `>=最低版本,<下一大版本` 范围约束
-
-### Requirement: 账户开户日期必须使用当前日期
-`web/app.py` 中创建新账户时 MUST 使用当前日期（`datetime.date.today().isoformat()`），而非硬编码 `1999-01-01`。
-
-#### Scenario: 新建账户使用当前日期
-- **WHEN** 通过 Web API 创建新的 Beancount 账户
-- **THEN** open 指令的日期为请求当天的日期（YYYY-MM-DD 格式）
+## MODIFIED Requirements
 
 ### Requirement: beancount_config.py 必须纳入版本控制
 项目根目录 `.gitignore` SHALL NOT 排除 `beancount_config.py`，该文件 MUST 纳入 Git 版本控制。

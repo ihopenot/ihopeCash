@@ -115,7 +115,7 @@ The system SHALL display a scrollable log area showing import progress messages 
 
 #### Scenario: Step indicators show progress
 - **WHEN** system receives progress message with step number
-- **THEN** system displays "[X/7]" prefix showing current step (total changed from 6 to 7)
+- **THEN** system displays "[X/7]" prefix showing current step out of 7 total
 
 #### Scenario: Import completes and refreshes status bar
 - **WHEN** all 7 steps complete successfully

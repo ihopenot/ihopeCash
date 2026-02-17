@@ -31,6 +31,7 @@ class BillManager:
             config: Config 实例
         """
         self.config = config
+        self.beancount_path = config.beancount_path
         self.data_path = config.data_path
         self.rawdata_path = config.rawdata_path
         self.archive_path = config.archive_path
@@ -52,7 +53,7 @@ class BillManager:
         cmd = ["git"] + args
         result = subprocess.run(
             cmd,
-            cwd=self.data_path,
+            cwd=self.beancount_path,
             capture_output=True,
             text=True
         )
@@ -61,14 +62,14 @@ class BillManager:
         return result
     
     def git_ensure_repo(self):
-        """检测并初始化 data git 仓库
+        """检测并初始化 beancount git 仓库
         
-        如果 data/.git 不存在，执行 git init，创建 .gitignore，并完成首次提交。
+        如果 beancount_path/.git 不存在，执行 git init，创建 .gitignore，并完成首次提交。
         
         Raises:
             RuntimeError: git 未安装或初始化失败
         """
-        git_dir = os.path.join(self.data_path, ".git")
+        git_dir = os.path.join(self.beancount_path, ".git")
         if os.path.exists(git_dir):
             return
         
@@ -86,8 +87,12 @@ class BillManager:
         # git init
         self._run_git(["init"])
         
+        # 设置 git 用户信息
+        self._run_git(["config", "user.email", "ihopecash@local"])
+        self._run_git(["config", "user.name", "ihopeCash"])
+        
         # 创建 .gitignore
-        gitignore_path = os.path.join(self.data_path, ".gitignore")
+        gitignore_path = os.path.join(self.beancount_path, ".gitignore")
         with open(gitignore_path, "w", encoding="utf-8") as f:
             f.write(".ledger-period\n")
         
@@ -96,19 +101,19 @@ class BillManager:
         self._run_git(["commit", "-m", "初始化账本"])
     
     def git_is_clean(self) -> bool:
-        """检查 data git 工作区是否干净
+        """检查 beancount git 工作区是否干净
         
         Returns:
             True 表示工作区干净（无变更），False 表示有未提交变更。
-            如果 data/.git 不存在，返回 True。
+            如果 beancount_path/.git 不存在，返回 True。
         """
-        git_dir = os.path.join(self.data_path, ".git")
+        git_dir = os.path.join(self.beancount_path, ".git")
         if not os.path.exists(git_dir):
             return True
         
         result = subprocess.run(
             ["git", "status", "--porcelain"],
-            cwd=self.data_path,
+            cwd=self.beancount_path,
             capture_output=True,
             text=True
         )
@@ -132,7 +137,7 @@ class BillManager:
         执行 git checkout -- . 恢复已跟踪文件，git clean -fd 删除未跟踪文件，
         并清除 .ledger-period 文件。
         """
-        git_dir = os.path.join(self.data_path, ".git")
+        git_dir = os.path.join(self.beancount_path, ".git")
         if not os.path.exists(git_dir):
             return
         
@@ -245,6 +250,9 @@ class BillManager:
             # 传入配置字典
             config_dict = self.config.to_dict()
             config_dict["passwords"] = passwords
+            # 确保 rawdata 和 archive 目录存在
+            os.makedirs(config_dict.get("rawdata_path", self.rawdata_path), exist_ok=True)
+            os.makedirs(config_dict.get("archive_path", self.archive_path), exist_ok=True)
             DownloadFiles(config_dict)
         except Exception as e:
             logger.exception("下载账单失败")
@@ -339,25 +347,26 @@ include "total.bean"
         return month_path
     
     def record_balances(self, year: str, month: str, balances: Dict[str, str]):
-        """记录余额断言
+        """记录余额断言到对应账期的 others.bean
         
         Args:
             year: 年份
             month: 月份
             balances: 账户余额字典 {"账户名": "金额"}
         """
-        balance_file = os.path.join(self.data_path, "balance.bean")
+        others_file = os.path.join(self.data_path, year, month, "others.bean")
         
-        # 确保文件存在
-        if not os.path.exists(balance_file):
-            Path(balance_file).touch()
+        # 确保目录和文件存在
+        os.makedirs(os.path.dirname(others_file), exist_ok=True)
+        if not os.path.exists(others_file):
+            Path(others_file).touch()
         
         # 计算断言日期 (下个月1号)
         next_year = year if int(month) < 12 else str(int(year) + 1)
         next_month = str(1 if int(month) == 12 else (int(month) + 1)).rjust(2, '0')
         
-        # 写入余额
-        with open(balance_file, "a", encoding="utf-8") as f:
+        # 追加写入余额
+        with open(others_file, "a", encoding="utf-8") as f:
             for account, balance in balances.items():
                 f.write(f"{next_year}-{next_month}-01 balance {account} {balance} CNY\n")
     
@@ -450,7 +459,7 @@ include "total.bean"
         try:
             # 1. Git 提交上期变更
             send_progress(1, "git_commit", "running", "正在检查版本管理状态...")
-            git_dir = os.path.join(self.data_path, ".git")
+            git_dir = os.path.join(self.beancount_path, ".git")
             if not os.path.exists(git_dir):
                 send_progress(1, "git_commit", "running", "正在初始化版本管理...")
                 self.git_ensure_repo()
@@ -465,7 +474,7 @@ include "total.bean"
                 send_progress(1, "git_commit", "success", "无待提交的变更，跳过")
             
             # 2. 下载邮件账单
-            send_progress(2, "download", "running", "正在下载邮件账单...")
+            send_progress(2, "download", "running", "正在下载邮件账单（如需暴力破解密码可能耗时较长）...")
             self.download_bills(passwords)
             files_count = len(glob.glob(os.path.join(self.rawdata_path, "*")))
             send_progress(2, "download", "success", f"邮件下载完成，共 {files_count} 个文件", {"files_count": files_count})

@@ -7,14 +7,7 @@ __pycache__
 
 # 运行时数据（通过 volume 挂载）
 data/
-rawdata/
-archive/
 certs/
-config.yaml
-
-# Beancount 账本文件（通过 volume 挂载）
-main.bean
-accounts.bean
 
 # 开发文件
 .env

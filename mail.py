@@ -68,17 +68,23 @@ def decrypt_zip(data, password_itr, extract_suffix=".csv", zipfile_cls=pyzipper.
                             data = source.read()
                             logger.info('Successfully extracted file with config password')
                             return ret_name, data
-                    except (RuntimeError, pyzipper.BadZipFile):
+                    except Exception:
                         continue
 
+                logger.info('配置密码均不匹配，开始暴力破解...')
+                attempt = 0
                 for password in password_itr:
+                    attempt += 1
+                    if attempt % 100000 == 0:
+                        logger.info(f'暴力破解进度: 已尝试 {attempt} 个密码...')
                     try:
                         with zip_ref.open(zip_info, pwd=bytes(password)) as source:
                             data = source.read()
-                            logger.info('Successfully extracted file with brute-force password')
+                            logger.info(f'暴力破解成功，共尝试 {attempt} 次')
                             return ret_name, data
-                    except (RuntimeError, pyzipper.BadZipFile):
+                    except Exception:
                         continue
+                logger.warning(f'暴力破解失败，共尝试 {attempt} 个密码')
     return None
 
 

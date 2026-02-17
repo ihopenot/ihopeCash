@@ -42,7 +42,7 @@ Config 类 SHALL 提供包含所有配置类型的默认配置结构，包括系
 
 #### Scenario: 默认配置包含系统配置节
 - **WHEN** 创建默认配置
-- **THEN** 配置包含 `system` 节点，其中包含 data_path、rawdata_path、archive_path、balance_accounts
+- **THEN** 配置包含 `system` 节点，其中包含 beancount_path、balance_accounts（路径属性 data_path、rawdata_path、archive_path 由 beancount_path 硬编码派生）
 
 #### Scenario: 默认配置包含邮件配置节
 - **WHEN** 创建默认配置
@@ -113,5 +113,5 @@ Config 类 SHALL 提供方法检查和显示配置结构，方便调试和验证
 `update_from_web()` 方法更新嵌套配置时 MUST 使用深度合并（而非 `dict.update()` 浅合并），以避免丢失未传入的嵌套键。
 
 #### Scenario: 更新嵌套配置保留未传入的键
-- **WHEN** 调用 `update_from_web({"system": {"data_path": "new_path"}})` 且原配置 system 下还有 rawdata_path
-- **THEN** rawdata_path 保留不变，data_path 被更新
+- **WHEN** 调用 `update_from_web({"system": {"balance_accounts": ["Assets:BOC"]}})` 且原配置 system 下还有 beancount_path
+- **THEN** beancount_path 保留不变，balance_accounts 被更新

@@ -402,6 +402,13 @@
                     return;
                 }
 
+                const contentType = response.headers.get('content-type') || '';
+                if (!response.ok || !contentType.includes('application/json')) {
+                    addLog(`服务器错误 (${response.status})，请稍后重试`, 'error');
+                    enableForm();
+                    return;
+                }
+
                 const data = await response.json();
 
                 if (data.success) {

@@ -1,53 +1,52 @@
 ## ADDED Requirements
 
-### Requirement: Web service configuration in config.yaml
+### Requirement: Web service configuration in env.yaml
 
-The system SHALL read web service configuration from config.yaml under "web" key.
+The system SHALL read web service configuration from env.yaml under "web" key. The env.yaml web settings take priority and override any web settings in config.yaml.
 
-#### Scenario: Config file contains web settings
-- **WHEN** system loads config.yaml with web section
+#### Scenario: env.yaml contains web settings
+- **WHEN** system loads env.yaml with web section
 - **THEN** system reads host, port, password, jwt_secret, token_expire_days values
 
-#### Scenario: Config file missing web section
-- **WHEN** system loads config.yaml without web section
+#### Scenario: env.yaml missing web section
+- **WHEN** system loads env.yaml without web section
 - **THEN** system merges default web configuration values
-- **AND** system creates web section in config.yaml on save
 
 ### Requirement: Configurable host and port
 
-The system SHALL allow configuring web service host and port via config.yaml.
+The system SHALL allow configuring web service host and port via env.yaml.
 
 #### Scenario: Default host is 0.0.0.0
-- **WHEN** config.yaml does not specify web.host
+- **WHEN** env.yaml does not specify web.host
 - **THEN** system defaults to "0.0.0.0" (allows external access)
 
 #### Scenario: Default port is 8000
-- **WHEN** config.yaml does not specify web.port
+- **WHEN** env.yaml does not specify web.port
 - **THEN** system defaults to 8000
 
 #### Scenario: Custom host applied
-- **WHEN** config.yaml specifies web.host: "127.0.0.1"
+- **WHEN** env.yaml specifies web.host: "127.0.0.1"
 - **THEN** system listens only on localhost
 
 #### Scenario: Custom port applied
-- **WHEN** config.yaml specifies web.port: 9000
+- **WHEN** env.yaml specifies web.port: 9000
 - **THEN** system listens on port 9000
 
-### Requirement: Password configured in config.yaml
+### Requirement: Password configured in env.yaml
 
-The system SHALL read web interface password from config.yaml web.password field.
+The system SHALL read web interface password from env.yaml web.password field.
 
 #### Scenario: Password matches config value
-- **WHEN** user submits login with password from config.yaml
+- **WHEN** user submits login with password from env.yaml
 - **THEN** system grants access and returns JWT token
 
 #### Scenario: Password stored in plaintext
-- **WHEN** config.yaml contains web.password: "mypassword"
+- **WHEN** env.yaml contains web.password: "mypassword"
 - **THEN** system compares login password directly with this plaintext value
 
 ### Requirement: JWT secret configurable
 
-The system SHALL use config.yaml web.jwt_secret as signing key for JWT tokens.
+The system SHALL use env.yaml web.jwt_secret as signing key for JWT tokens.
 
 #### Scenario: JWT signed with secret from config
 - **WHEN** system generates JWT token
@@ -59,14 +58,14 @@ The system SHALL use config.yaml web.jwt_secret as signing key for JWT tokens.
 
 ### Requirement: Token expiration configurable
 
-The system SHALL use config.yaml web.token_expire_days to set JWT token expiration period.
+The system SHALL use env.yaml web.token_expire_days to set JWT token expiration period.
 
 #### Scenario: Default expiration is 7 days
-- **WHEN** config.yaml does not specify web.token_expire_days
+- **WHEN** env.yaml does not specify web.token_expire_days
 - **THEN** system defaults to 7 days
 
 #### Scenario: Custom expiration applied
-- **WHEN** config.yaml specifies web.token_expire_days: 30
+- **WHEN** env.yaml specifies web.token_expire_days: 30
 - **THEN** system generates tokens valid for 30 days
 
 ### Requirement: Config.py extends to support web settings
@@ -93,20 +92,20 @@ The system SHALL extend Config class with properties to access web configuration
 - **WHEN** code accesses config.token_expire_days
 - **THEN** system returns value from config["web"]["token_expire_days"]
 
-### Requirement: Default config includes web section
+### Requirement: Default env.yaml includes web section
 
-The system SHALL include web configuration in default config template with placeholder values.
+The system SHALL include web configuration in env.example.yaml template with placeholder values.
 
-#### Scenario: New config file includes web section
-- **WHEN** system generates default config.yaml
-- **THEN** system includes web section with keys: host, port, password, jwt_secret, token_expire_days
+#### Scenario: env.example.yaml includes web section
+- **WHEN** user copies env.example.yaml to env.yaml
+- **THEN** file includes web section with keys: host, port, password, jwt_secret, token_expire_days
 
 #### Scenario: Default password requires change
-- **WHEN** system generates default config.yaml
+- **WHEN** env.yaml uses default web.password
 - **THEN** web.password value is "change_this_password" to prompt user to change
 
 #### Scenario: Default JWT secret requires change
-- **WHEN** system generates default config.yaml
+- **WHEN** env.yaml uses default web.jwt_secret
 - **THEN** web.jwt_secret value is "change_this_secret_key" to prompt user to change
 
 ### Requirement: Config validation warns about default values
@@ -115,8 +114,8 @@ The system SHALL warn user if default password or JWT secret values are not chan
 
 #### Scenario: Warning on default password
 - **WHEN** system starts with web.password: "change_this_password"
-- **THEN** system logs warning "警告: 请修改 config.yaml 中的 web.password"
+- **THEN** system logs warning "警告: 请修改 env.yaml 中的 web.password"
 
 #### Scenario: Warning on default JWT secret
 - **WHEN** system starts with web.jwt_secret: "change_this_secret_key"
-- **THEN** system logs warning "警告: 请修改 config.yaml 中的 web.jwt_secret"
+- **THEN** system logs warning "警告: 请修改 env.yaml 中的 web.jwt_secret"

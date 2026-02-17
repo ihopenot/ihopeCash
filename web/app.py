@@ -121,19 +121,20 @@ async def check_setup_middleware(request: Request, call_next):
 # ==================== 启动事件 ====================
 
 def ensure_default_bean_files():
-    """确保默认 bean 文件存在"""
+    """确保默认 bean 文件和目录存在"""
+    for d in [config.data_path, config.rawdata_path, config.archive_path]:
+        os.makedirs(d, exist_ok=True)
+    
     data_path = config.data_path
-    os.makedirs(data_path, exist_ok=True)
     
     # data/main.bean
     main_bean = os.path.join(data_path, "main.bean")
-    if not os.path.exists(main_bean):
+    if not os.path.exists(main_bean) or os.path.getsize(main_bean) == 0:
         with open(main_bean, "w", encoding="utf-8") as f:
             f.write('option "title" "ihopeCash"\n')
             f.write('option "operating_currency" "CNY"\n')
             f.write('\n')
             f.write('include "accounts.bean"\n')
-            f.write('include "balance.bean"\n')
         print(f"已创建默认文件: {main_bean}")
     
     # data/accounts.bean
@@ -142,11 +143,6 @@ def ensure_default_bean_files():
         open(accounts_bean, "w", encoding="utf-8").close()
         print(f"已创建默认文件: {accounts_bean}")
     
-    # data/balance.bean
-    balance_bean = os.path.join(data_path, "balance.bean")
-    if not os.path.exists(balance_bean):
-        open(balance_bean, "w", encoding="utf-8").close()
-        print(f"已创建默认文件: {balance_bean}")
 
 
 @app.on_event("startup")
@@ -319,7 +315,7 @@ async def login(request: LoginRequest, req: Request):
         if _login_attempts[client_ip]["count"] >= _RATE_LIMIT_MAX_ATTEMPTS:
             _login_attempts[client_ip]["blocked_until"] = now + _RATE_LIMIT_BLOCK_SECONDS
             logger.warning(f"IP {client_ip} blocked due to too many failed login attempts")
-        raise HTTPException(status_code=401, detail="密码错误")
+        raise HTTPException(status_code=401, detail="认证失败")
     
     # 登录成功，清除失败记录
     _login_attempts.pop(client_ip, None)

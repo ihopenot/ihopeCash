@@ -6,10 +6,9 @@ Config 类 SHALL 定义默认配置结构，包含 system、email、passwords、
 #### Scenario: 默认配置包含系统配置节
 - **WHEN** 创建默认配置
 - **THEN** 配置包含 `system` 节点
-- **THEN** `system` 节点包含 data_path 默认值为 "data"
-- **THEN** `system` 节点包含 rawdata_path 默认值为 "rawdata"
-- **THEN** `system` 节点包含 archive_path 默认值为 "archive"
+- **THEN** `system` 节点包含 beancount_path 默认值为 "data/beancount"
 - **THEN** `system` 节点包含 balance_accounts 默认值为空列表
+- **THEN** 路径属性 `data_path`、`rawdata_path`、`archive_path` 从 `beancount_path` 硬编码派生（分别为 `beancount_path + "/data"`、`beancount_path + "/rawdata"`、`beancount_path + "/archive"`）
 
 #### Scenario: 默认配置包含邮件配置节
 - **WHEN** 创建默认配置
@@ -47,9 +46,10 @@ Config 类 SHALL 接受 `env_file` 参数，初始化时先加载 `env.yaml` 再
 - **THEN** Config 对象正常创建，`setup_required` 属性为 False
 - **THEN** 业务配置从 config.yaml 加载
 
-#### Scenario: env.yaml 中的 system 和 web 覆盖 config.yaml
-- **WHEN** env.yaml 和 config.yaml 都包含 system 或 web 字段
-- **THEN** env.yaml 中的 system 和 web 字段值覆盖 config.yaml 中的对应值
+#### Scenario: env.yaml 中的 web 字段覆盖 config.yaml
+- **WHEN** env.yaml 和 config.yaml 都包含 web 字段
+- **THEN** env.yaml 中的 web 字段值覆盖 config.yaml 中的对应值
+- **THEN** env.yaml 中的 system 字段（如存在）也会覆盖 config.yaml 中的对应值，但路径相关字段（`beancount_path`、`data_path`、`rawdata_path`、`archive_path`）被排除
 
 ### Requirement: Config 类提供 setup_required 属性
 Config 类 SHALL 提供 `setup_required` 属性，指示是否需要运行首次配置引导。

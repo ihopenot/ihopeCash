@@ -42,11 +42,11 @@
 
 #### Scenario: 成功新增账户
 - **WHEN** 已认证用户提交 `POST /api/ledger/accounts`，body 为 `{"account_type": "Assets", "path": "BoC:Card:1234", "currencies": "CNY", "comment": "中行储蓄卡"}`
-- **THEN** 系统 SHALL 在 `data/accounts.bean` 末尾追加 `1999-01-01 open Assets:BoC:Card:1234 CNY ; 中行储蓄卡`，返回 `{"success": true}`
+- **THEN** 系统 SHALL 在 `data/accounts.bean` 末尾追加 `<当天日期> open Assets:BoC:Card:1234 CNY ; 中行储蓄卡`（日期使用 `datetime.date.today().isoformat()`），返回 `{"success": true}`
 
 #### Scenario: 新增账户货币为空
 - **WHEN** 已认证用户提交 `POST /api/ledger/accounts`，body 中 `currencies` 为空字符串
-- **THEN** 系统 SHALL 追加不含货币的 open 指令：`1999-01-01 open Assets:BoC:Card:1234`（支持任意货币）
+- **THEN** 系统 SHALL 追加不含货币的 open 指令：`<当天日期> open Assets:BoC:Card:1234`（支持任意货币）
 
 #### Scenario: 账户类型无效
 - **WHEN** 已认证用户提交 `POST /api/ledger/accounts`，body 中 `account_type` 不在 Assets/Liabilities/Income/Expenses/Equity 中
@@ -54,7 +54,7 @@
 
 #### Scenario: 账户路径校验 — 第二级名称以中文开头
 - **WHEN** 已认证用户提交 `POST /api/ledger/accounts`，body 中 `path` 为 `中行:Card`
-- **THEN** 系统 SHALL 返回 400 状态码，提示"账户路径的第一段必须以英文字母或数字开头"
+- **THEN** 系统 SHALL 返回 400 状态码，提示"账户路径的第一段必须以大写字母或数字开头"
 
 #### Scenario: 账户路径为空
 - **WHEN** 已认证用户提交 `POST /api/ledger/accounts`，body 中 `path` 为空
