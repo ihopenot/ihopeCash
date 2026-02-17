@@ -250,6 +250,9 @@ class BillManager:
             # 传入配置字典
             config_dict = self.config.to_dict()
             config_dict["passwords"] = passwords
+            # 确保 rawdata 和 archive 目录存在
+            os.makedirs(config_dict.get("rawdata_path", self.rawdata_path), exist_ok=True)
+            os.makedirs(config_dict.get("archive_path", self.archive_path), exist_ok=True)
             DownloadFiles(config_dict)
         except Exception as e:
             logger.exception("下载账单失败")
