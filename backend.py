@@ -87,6 +87,10 @@ class BillManager:
         # git init
         self._run_git(["init"])
         
+        # 设置 git 用户信息
+        self._run_git(["config", "user.email", "ihopecash@local"])
+        self._run_git(["config", "user.name", "ihopeCash"])
+        
         # 创建 .gitignore
         gitignore_path = os.path.join(self.beancount_path, ".gitignore")
         with open(gitignore_path, "w", encoding="utf-8") as f:

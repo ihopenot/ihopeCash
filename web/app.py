@@ -129,7 +129,7 @@ def ensure_default_bean_files():
     
     # data/main.bean
     main_bean = os.path.join(data_path, "main.bean")
-    if not os.path.exists(main_bean):
+    if not os.path.exists(main_bean) or os.path.getsize(main_bean) == 0:
         with open(main_bean, "w", encoding="utf-8") as f:
             f.write('option "title" "ihopeCash"\n')
             f.write('option "operating_currency" "CNY"\n')
