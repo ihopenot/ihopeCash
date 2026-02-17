@@ -2,22 +2,28 @@
 
 ### Requirement: 配置页面提供分 Tab 编辑界面
 
-系统 SHALL 在 /config 路径提供配置编辑页面，含 4 个 Tab。高级配置 Tab 中 HSBC HK 部分拆分为三条独立配置项，卡号账户映射改为三栏交互式编辑，交易摘要过滤提供默认值。所有动态渲染用户数据的地方 MUST 使用 HTML 转义或 DOM API（textContent），不允许直接将未转义的数据拼接到 innerHTML 中。
+系统 SHALL 在 /config 路径提供配置编辑页面，含 4 个 Tab。所有账户选择字段 MUST 使用下拉选择+新增模式，不允许纯文本输入。高级配置 Tab 中 HSBC HK 部分拆分为三条独立配置项，卡号账户映射改为三栏交互式编辑，交易摘要过滤提供默认值。所有动态渲染用户数据的地方 MUST 使用 HTML 转义或 DOM API（textContent），不允许直接将未转义的数据拼接到 innerHTML 中。
 
 #### Scenario: 账本 Tab 显示
 - **WHEN** 用户切换到"账本"Tab
 - **THEN** 系统显示账本基本信息（名称、主货币）编辑区域和账户管理区域（按五大类型分组展示、新增账户表单、关闭账户功能）
 - **THEN** 账户名称和评论 MUST 使用 `escapeHtml()` 或 `textContent` 渲染
 
-#### Scenario: 基础配置 Tab 显示
+#### Scenario: 基础配置 Tab - 账户字段使用下拉选择
 - **WHEN** 用户切换到"基础配置"Tab
 - **THEN** 系统显示 balance_accounts 动态列表和 email.imap 各字段输入框
+- **THEN** balance_accounts 的账户选择 MUST 使用下拉选择组件+新增按钮
 - **AND** 页面顶部显示警告"由于 Beancount 无法动态修改账户名，账户内有数据的情况下请不要修改账户名"
 
-#### Scenario: 高级配置 Tab - HSBC HK 拆分展示
+#### Scenario: 高级配置 Tab - 通用账户使用下拉选择
 - **WHEN** 用户切换到"高级配置"Tab
-- **THEN** HSBC HK 区域显示三条独立配置项：use_cnh 开关（checkbox）、One 账户输入框、PULSE 账户输入框
-- **THEN** 不再使用 JSON textarea 编辑 account_mapping
+- **THEN** 默认支出账户（unknown_expense_account）MUST 使用下拉选择组件+新增按钮
+- **THEN** 默认收入账户（unknown_income_account）MUST 使用下拉选择组件+新增按钮
+
+#### Scenario: 高级配置 Tab - HSBC HK 账户使用下拉选择
+- **WHEN** 用户切换到"高级配置"Tab
+- **THEN** HSBC HK 区域显示三条独立配置项：use_cnh 开关（checkbox）、One 账户下拉选择、PULSE 账户下拉选择
+- **THEN** One 账户和 PULSE 账户 MUST 使用下拉选择组件+新增按钮
 
 #### Scenario: 高级配置 Tab - HSBC HK 数据提交
 - **WHEN** 用户保存高级配置
@@ -26,7 +32,11 @@
 #### Scenario: 高级配置 Tab - 卡号账户映射三栏编辑
 - **WHEN** 用户查看卡号账户映射区域
 - **THEN** 每条映射显示为三栏：分类下拉（Assets/Liabilities/Income/Expenses/Equity）、自定义中间名称输入框、4位字符串输入框
-- **THEN** 不再使用 JSON textarea 编辑 card_accounts
+
+#### Scenario: 高级配置 Tab - 卡号映射中间名称去尾冒号
+- **WHEN** 从配置数据渲染卡号映射行
+- **THEN** 中间名称栏 MUST 去除数据中 key 末尾的冒号后再显示
+- **THEN** 不得将存储格式的尾冒号展示给用户
 
 #### Scenario: 高级配置 Tab - 卡号映射实时预览
 - **WHEN** 用户修改卡号映射的任一栏
@@ -41,7 +51,8 @@
 
 #### Scenario: 高级配置 Tab - 卡号映射数据提交
 - **WHEN** 用户保存高级配置
-- **THEN** 前端将三栏值转换为 `card_accounts: { <分类>: { "<中间名称>:": ["<4位字符>"] } }` 嵌套结构提交
+- **THEN** 前端将三栏值转换为 `card_accounts: { <分类>: { "<中间名称>": ["<4位字符>"] } }` 嵌套结构提交
+- **THEN** 中间名称 key 不带末尾冒号（前端提交前去除尾冒号）
 
 #### Scenario: 高级配置 Tab - 交易摘要过滤默认值修复
 - **WHEN** 用户已明确将白名单或黑名单保存为空列表
@@ -49,6 +60,12 @@
 - **WHEN** 配置中完全不存在 narration_filter 字段（首次使用）
 - **THEN** 白名单预填 ["财付通(银联云闪付)"]
 - **THEN** 黑名单预填 ["支付宝", "财付通", "美团支付"]
+
+#### Scenario: 配置页账户列表数据源
+- **WHEN** 配置页加载
+- **THEN** 调用 GET /api/ledger/accounts 获取服务端账户列表
+- **THEN** 所有账户下拉选择组件从该列表填充选项
+- **THEN** 通过"新增"按钮添加的账户 MUST 同步到所有下拉组件
 
 #### Scenario: 修改密码 Tab 显示
 - **WHEN** 用户切换到"修改密码"Tab

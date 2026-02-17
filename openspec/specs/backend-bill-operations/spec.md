@@ -94,14 +94,14 @@ BillManager 类 SHALL 提供 `create_month_directory(year, month, remove_if_exis
 ### Requirement: BillManager 必须记录余额断言
 BillManager 类 SHALL 提供 `record_balances(year, month, balances)` 方法,记录账户余额断言。文件路径 MUST 使用 `os.path.join()`。文件操作 MUST 使用 `with` 语句。
 
-#### Scenario: 记录余额到 balance.bean
+#### Scenario: 记录余额到对应账期的 others.bean
 - **WHEN** 调用 `manager.record_balances("2024", "12", {"Assets:Bank:BOC": "5000.00"})`
-- **THEN** 系统在 data/balance.bean 中追加余额断言
+- **THEN** 系统在 `data/{year}/{month}/others.bean` 中追加余额断言
 - **THEN** 断言日期为下个月1号 (2025-01-01)
 - **THEN** 断言格式为 "YYYY-MM-DD balance <account> <amount> CNY"
 
-#### Scenario: balance.bean 不存在时自动创建
-- **WHEN** data/balance.bean 文件不存在
+#### Scenario: others.bean 不存在时自动创建
+- **WHEN** `data/{year}/{month}/others.bean` 文件不存在
 - **THEN** 系统使用 `Path.touch()` 创建该文件后再写入余额
 
 ### Requirement: BillManager 必须提供完整月度导入工作流

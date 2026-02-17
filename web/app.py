@@ -315,7 +315,7 @@ async def login(request: LoginRequest, req: Request):
         if _login_attempts[client_ip]["count"] >= _RATE_LIMIT_MAX_ATTEMPTS:
             _login_attempts[client_ip]["blocked_until"] = now + _RATE_LIMIT_BLOCK_SECONDS
             logger.warning(f"IP {client_ip} blocked due to too many failed login attempts")
-        raise HTTPException(status_code=401, detail="密码错误")
+        raise HTTPException(status_code=401, detail="认证失败")
     
     # 登录成功，清除失败记录
     _login_attempts.pop(client_ip, None)

@@ -14,31 +14,27 @@
 
 #### Scenario: Fava 启动路径
 - **WHEN** Docker entrypoint 启动 Fava
-- **THEN** SHALL 指向 `/app/data/main.bean`
+- **THEN** SHALL 指向 `/app/data/beancount/data/main.bean`
 
 ### Requirement: 启动时自动创建默认文件
 
-Web 应用启动时 SHALL 检测 `data/main.bean`、`data/accounts.bean`、`data/balance.bean` 是否存在，不存在时 SHALL 自动创建默认文件。
+Web 应用启动时 SHALL 检测 `data/main.bean`、`data/accounts.bean` 是否存在，不存在时 SHALL 自动创建默认文件。同时确保 `data/`、`rawdata/`、`archive/` 三个目录存在。
 
 #### Scenario: main.bean 不存在
-- **WHEN** Web 应用启动且 `data/main.bean` 不存在
-- **THEN** 系统 SHALL 创建 `data/main.bean`，内容包含默认账本名称 `ihopeCash`、默认主货币 `CNY`、以及对 `accounts.bean` 和 `balance.bean` 的 include 语句
+- **WHEN** Web 应用启动且 `data/main.bean` 不存在或为空文件
+- **THEN** 系统 SHALL 创建 `data/main.bean`，内容包含默认账本名称 `ihopeCash`、默认主货币 `CNY`、以及对 `accounts.bean` 的 include 语句
 
 #### Scenario: accounts.bean 不存在
 - **WHEN** Web 应用启动且 `data/accounts.bean` 不存在
 - **THEN** 系统 SHALL 创建空的 `data/accounts.bean`
 
-#### Scenario: balance.bean 不存在
-- **WHEN** Web 应用启动且 `data/balance.bean` 不存在
-- **THEN** 系统 SHALL 创建空的 `data/balance.bean`
-
 #### Scenario: 文件已存在时不覆盖
-- **WHEN** Web 应用启动且 `data/main.bean` 已存在
+- **WHEN** Web 应用启动且 `data/main.bean` 已存在且非空
 - **THEN** 系统 SHALL 不修改已有文件
 
-#### Scenario: data 目录不存在
-- **WHEN** Web 应用启动且 `data/` 目录不存在
-- **THEN** 系统 SHALL 先创建 `data/` 目录，再创建默认文件
+#### Scenario: 目录不存在时自动创建
+- **WHEN** Web 应用启动且 `data/`、`rawdata/`、`archive/` 目录不存在
+- **THEN** 系统 SHALL 使用 `os.makedirs(exist_ok=True)` 创建所有三个目录
 
 ### Requirement: 迁移脚本
 

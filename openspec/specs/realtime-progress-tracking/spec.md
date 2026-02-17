@@ -1,12 +1,12 @@
 ## ADDED Requirements
 
-### Requirement: System tracks import progress in 6 steps
+### Requirement: System tracks import progress in 7 steps
 
-The system SHALL divide import workflow into 6 trackable steps: download, identify, create_dir, extract, balance, archive.
+The system SHALL divide import workflow into 7 trackable steps: git_commit, download, identify, create_dir, extract, balance, archive.
 
-#### Scenario: All 6 steps executed in order
+#### Scenario: All 7 steps executed in order
 - **WHEN** user submits import request
-- **THEN** system executes steps in sequence: download → identify → create_dir → extract → balance → archive
+- **THEN** system executes steps in sequence: git_commit → download → identify → create_dir → extract → balance → archive
 
 #### Scenario: Each step reports start and completion
 - **WHEN** system begins a step
@@ -35,16 +35,16 @@ The system SHALL push progress messages to client via WebSocket connection at /w
 The system SHALL send progress messages as JSON with fields: task_id, step, total, step_name, status, message, details.
 
 #### Scenario: Running step message structure
-- **WHEN** system starts step 1 (download)
-- **THEN** message contains: `{"task_id": "...", "step": 1, "total": 6, "step_name": "download", "status": "running", "message": "正在下载邮件账单..."}`
+- **WHEN** system starts step 1 (git_commit)
+- **THEN** message contains: `{"task_id": "...", "step": 1, "total": 7, "step_name": "git_commit", "status": "running", "message": "正在检查版本管理状态..."}`
 
 #### Scenario: Success step message structure
-- **WHEN** system completes step 2 (identify)
-- **THEN** message contains: `{"task_id": "...", "step": 2, "total": 6, "step_name": "identify", "status": "success", "message": "文件识别完成", "details": {...}}`
+- **WHEN** system completes step 3 (identify)
+- **THEN** message contains: `{"task_id": "...", "step": 3, "total": 7, "step_name": "identify", "status": "success", "message": "文件识别完成", "details": {"output": "..."}}`
 
 #### Scenario: Error step message structure
-- **WHEN** system fails at step 3 (create_dir)
-- **THEN** message contains: `{"task_id": "...", "step": 3, "total": 6, "step_name": "create_dir", "status": "error", "message": "目录 data/2025/2 已存在"}`
+- **WHEN** system fails at step 4 (create_dir)
+- **THEN** message contains: `{"task_id": "...", "step": 4, "total": 7, "step_name": "create_dir", "status": "error", "message": "目录 data/2025/2 已存在"}`
 
 ### Requirement: Progress callback mechanism in BillManager
 
@@ -52,7 +52,7 @@ The system SHALL extend BillManager class with progress_callback parameter and p
 
 #### Scenario: Callback invoked at each step
 - **WHEN** BillManager executes import_month_with_progress()
-- **THEN** callback function is called before and after each of 6 steps
+- **THEN** callback function is called before and after each of 7 steps
 
 #### Scenario: Callback receives progress dict
 - **WHEN** callback is invoked
@@ -71,13 +71,13 @@ The system SHALL include optional details field with step-specific information.
 - **WHEN** download step completes successfully
 - **THEN** details field contains: `{"files_count": 15}`
 
-#### Scenario: Identify step includes file breakdown
+#### Scenario: Identify step includes raw output
 - **WHEN** identify step completes successfully
-- **THEN** details field contains: `{"alipay": 5, "wechat": 8, "boc": 2}`
+- **THEN** details field contains: `{"output": "<bean-identify command output>"}`
 
-#### Scenario: Extract step includes transaction count
+#### Scenario: Extract step completes without extra details
 - **WHEN** extract step completes successfully
-- **THEN** details field contains: `{"transactions_count": 287}`
+- **THEN** message is "交易提取完成", details field is empty
 
 ### Requirement: WebSocket handles disconnection gracefully
 
