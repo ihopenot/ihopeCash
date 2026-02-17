@@ -185,6 +185,16 @@
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
                 <h3 class="text-base font-semibold text-gray-800 mb-4">支付宝 (importers.alipay)</h3>
                 <div class="space-y-3" id="alipay_fields"></div>
+
+                <!-- 支付宝分类映射 -->
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-sm font-semibold text-gray-700">分类映射 (category_mapping)</h4>
+                        <button type="button" id="addCategoryMappingBtn" class="text-sm text-blue-600 hover:text-blue-700 font-medium">+ 添加</button>
+                    </div>
+                    <p class="text-xs text-gray-400 mb-2">将支付宝交易分类自动映射到 Beancount 费用账户</p>
+                    <div class="space-y-2" id="categoryMappingRows"></div>
+                </div>
             </div>
 
             <!-- 微信导入器 -->
@@ -765,6 +775,7 @@
             document.getElementById('unknown_income_account').value = configData.unknown_income_account || '';
 
             renderImporterFields('alipay_fields', configData.importers?.alipay || {});
+            renderCategoryMapping(configData.importers?.alipay?.category_mapping || {});
             renderImporterFields('wechat_fields', configData.importers?.wechat || {});
             renderImporterFields('thu_ecard_fields', configData.importers?.thu_ecard || {});
             renderHsbcFields();
@@ -796,6 +807,7 @@
             });
 
             document.getElementById('addCardAccountBtn').addEventListener('click', () => addCardAccountRow());
+            document.getElementById('addCategoryMappingBtn').addEventListener('click', () => addCategoryMappingRow());
         }
 
         function renderImporterFields(containerId, data) {
@@ -819,6 +831,30 @@
                 }
                 container.appendChild(div);
             }
+        }
+
+        function renderCategoryMapping(data) {
+            const container = document.getElementById('categoryMappingRows');
+            container.innerHTML = '';
+            for (const [category, account] of Object.entries(data)) {
+                addCategoryMappingRow(category, account);
+            }
+        }
+
+        function addCategoryMappingRow(category = '', account = '') {
+            const container = document.getElementById('categoryMappingRows');
+            const div = document.createElement('div');
+            div.className = 'flex items-center gap-2 category-mapping-row';
+            div.innerHTML = `
+                <input type="text" class="cm-category flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" value="${escapeHtml(category)}" placeholder="分类名称，如 交通出行">
+                <span class="text-gray-400">→</span>
+                ${accountSelectHtml(account, 'cm-account')}
+                <button type="button" class="remove-btn text-gray-400 hover:text-red-500 transition p-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            `;
+            div.querySelector('.remove-btn').addEventListener('click', () => div.remove());
+            container.appendChild(div);
         }
 
         function renderHsbcFields() {
@@ -857,7 +893,7 @@
             for (const [category, middleMap] of Object.entries(data)) {
                 for (const [middleName, suffixes] of Object.entries(middleMap)) {
                     for (const suffix of suffixes) {
-                        addCardAccountRow(category, middleName.replace(/:$/, ''), String(suffix));
+                        addCardAccountRow(category, middleName, String(suffix));
                     }
                 }
             }
@@ -1061,6 +1097,14 @@
 
         function collectAdvancedConfig() {
             const alipay = collectImporterData('alipay_fields');
+            // Collect category_mapping
+            const categoryMapping = {};
+            document.querySelectorAll('#categoryMappingRows .category-mapping-row').forEach(row => {
+                const cat = row.querySelector('.cm-category').value.trim();
+                const acc = row.querySelector('.cm-account').value.trim();
+                if (cat && acc) categoryMapping[cat] = acc;
+            });
+            alipay.category_mapping = categoryMapping;
             const wechat = collectImporterData('wechat_fields');
             const thu_ecard = collectImporterData('thu_ecard_fields');
 

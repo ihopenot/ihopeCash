@@ -285,11 +285,16 @@ class Config:
         """返回配置的完整字典副本
         
         用于传递给需要 dict 的模块（如 mail.py, beancount_config.py）
+        会注入派生路径属性，确保下游模块获取正确路径。
         
         Returns:
             配置字典的深拷贝
         """
-        return copy.deepcopy(self._config)
+        d = copy.deepcopy(self._config)
+        d["data_path"] = self.data_path
+        d["rawdata_path"] = self.rawdata_path
+        d["archive_path"] = self.archive_path
+        return d
     
     # ==================== 系统配置属性 ====================
     

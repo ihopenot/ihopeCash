@@ -104,7 +104,8 @@
     let serverAccounts = [];
     let defaults = {};
     let setupConfig = {};
-    let pendingSelectId = null; // 新增账户后自动选中的目标 select ID
+    let pendingSelectId = null;
+    let pendingSelectEl = null; // 新增账户后自动选中的目标 select ID
 
     const ACCOUNT_TYPES = ['Assets', 'Liabilities', 'Income', 'Expenses', 'Equity'];
 
@@ -140,12 +141,39 @@
             for (const [mid, suffixes] of Object.entries(midMap)) {
                 if (!Array.isArray(suffixes)) continue;
                 for (const suffix of suffixes) {
-                    const name = `${type}:${mid}${suffix}`;
+                    const name = `${type}:${mid}:${suffix}`;
                     if (!all.includes(name)) all.push(name);
                 }
             }
         }
         return all.sort();
+    }
+
+    function getCardAccountAdditions() {
+        const existingNames = new Set(tempAccounts.map(a => `${a.account_type}:${a.path}`));
+        const serverKnown = new Set();
+        for (const type of ACCOUNT_TYPES) {
+            for (const acc of (serverAccounts[type] || [])) {
+                if (acc.status === 'open') serverKnown.add(acc.name);
+            }
+        }
+        const additions = [];
+        const ca = setupConfig.card_accounts || {};
+        for (const [topType, midObj] of Object.entries(ca)) {
+            if (typeof midObj !== 'object') continue;
+            for (const [midName, suffixes] of Object.entries(midObj)) {
+                if (!Array.isArray(suffixes)) continue;
+                for (const suffix of suffixes) {
+                    const fullName = `${topType}:${midName}:${suffix}`;
+                    if (!existingNames.has(fullName) && !serverKnown.has(fullName)) {
+                        const colonIdx = fullName.indexOf(':');
+                        additions.push({ account_type: fullName.substring(0, colonIdx), path: fullName.substring(colonIdx + 1), currencies: '', comment: '' });
+                        existingNames.add(fullName);
+                    }
+                }
+            }
+        }
+        return additions;
     }
 
     function renderAccountSelect(id, value = '', label = '') {
@@ -190,8 +218,9 @@
     }
 
     // ==================== 新增账户弹窗 ====================
-    function openAddAccountModal(targetSelectId) {
+    function openAddAccountModal(targetSelectId, triggerEl) {
         pendingSelectId = targetSelectId;
+        pendingSelectEl = triggerEl ? triggerEl.closest('.flex')?.querySelector('.account-select') : null;
         document.getElementById('modalAccType').value = 'Assets';
         document.getElementById('modalAccPath').value = '';
         document.getElementById('modalAccCurrency').value = '';
@@ -246,6 +275,8 @@
         if (pendingSelectId) {
             const sel = document.getElementById(pendingSelectId);
             if (sel) sel.value = fullName;
+        } else if (pendingSelectEl) {
+            pendingSelectEl.value = fullName;
         }
 
         document.getElementById('addAccountModal').classList.add('hidden');
@@ -254,7 +285,17 @@
     // 事件委托: 新增按钮
     document.addEventListener('click', (e) => {
         if (e.target.classList.contains('add-acc-btn')) {
-            openAddAccountModal(e.target.dataset.target);
+            openAddAccountModal(e.target.dataset.target, e.target);
+        }
+        // 支付宝分类映射: 添加行
+        if (e.target.id === 's3_add_cm' || e.target.closest('#s3_add_cm')) {
+            const container = document.getElementById('s3_cm_rows');
+            if (container) container.insertAdjacentHTML('beforeend', renderCategoryMappingRow());
+        }
+        // 支付宝分类映射: 删除行
+        const delBtn = e.target.closest('.s3-cm-del');
+        if (delBtn) {
+            delBtn.closest('.s3-cm-row').remove();
         }
     });
 
@@ -368,15 +409,52 @@
             ['s3_rp_income', 'red_packet_income_account', '红包收入账户'],
             ['s3_rp_expense', 'red_packet_expense_account', '红包支出账户']
         ];
+        let cm = a.category_mapping || {};
+        if (Object.keys(cm).length === 0) {
+            cm = { '交通出行': '', '餐饮美食': '', '教育培训': '', '日用百货': '' };
+        }
+        const cmRows = Object.entries(cm).map(([cat, acc]) => renderCategoryMappingRow(cat, acc)).join('');
         return `<div class="space-y-4">
             <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
                 如果需要导入支付宝账单，务必保证以下所有账户都已设置，否则导入时可能失败。
             </div>
             ${fields.map(([id, key, label]) => renderAccountSelect(id, a[key] || '', label)).join('')}
+            <div class="mt-2 pt-3 border-t border-gray-200">
+                <div class="flex items-center justify-between mb-2">
+                    <h4 class="text-sm font-semibold text-gray-700">分类映射 (category_mapping)</h4>
+                    <button type="button" id="s3_add_cm" class="text-sm text-blue-600 hover:text-blue-700 font-medium">+ 添加</button>
+                </div>
+                <p class="text-xs text-gray-400 mb-2">将支付宝交易分类自动映射到 Beancount 费用账户，如 "交通出行" → Expenses:Transport</p>
+                <div class="space-y-2" id="s3_cm_rows">${cmRows}</div>
+            </div>
+        </div>`;
+    }
+    function renderCategoryMappingRow(category = '', account = '') {
+        const accounts = getAllAccounts();
+        const options = accounts.map(a => `<option value="${escapeHtml(a)}" ${a === account ? 'selected' : ''}>${escapeHtml(a)}</option>`).join('');
+        return `<div class="flex items-center gap-2 s3-cm-row">
+            <input type="text" class="s3-cm-cat flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" value="${escapeHtml(category)}" placeholder="分类名称，如 交通出行">
+            <span class="text-gray-400">→</span>
+            <div class="flex items-center gap-2 flex-1">
+                <select class="account-select s3-cm-acc w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                    <option value="">-- 请选择账户 --</option>
+                    ${options}
+                </select>
+                <button type="button" class="add-acc-btn text-sm text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap">+ 新增</button>
+            </div>
+            <button type="button" class="s3-cm-del text-gray-400 hover:text-red-500 transition p-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
         </div>`;
     }
     function saveStep3() {
         if (!setupConfig.importers) setupConfig.importers = {};
+        const categoryMapping = {};
+        document.querySelectorAll('#s3_cm_rows .s3-cm-row').forEach(row => {
+            const cat = row.querySelector('.s3-cm-cat').value.trim();
+            const acc = row.querySelector('.s3-cm-acc').value.trim();
+            if (cat && acc) categoryMapping[cat] = acc;
+        });
         setupConfig.importers.alipay = {
             account: document.getElementById('s3_account').value,
             huabei_account: document.getElementById('s3_huabei').value,
@@ -384,7 +462,7 @@
             yuebao_account: document.getElementById('s3_yuebao').value,
             red_packet_income_account: document.getElementById('s3_rp_income').value,
             red_packet_expense_account: document.getElementById('s3_rp_expense').value,
-            category_mapping: setupConfig.importers?.alipay?.category_mapping || {}
+            category_mapping: categoryMapping
         };
     }
 
@@ -520,7 +598,7 @@
             for (const [midName, suffixes] of Object.entries(midObj)) {
                 if (!Array.isArray(suffixes)) continue;
                 for (const suffix of suffixes) {
-                    rows += cardAccountRowHtml(topType, midName.replace(/:$/, ''), suffix);
+                    rows += cardAccountRowHtml(topType, midName, suffix);
                 }
             }
         }
@@ -588,7 +666,7 @@
         }
 
         // Build preview
-        const midPart = mid ? (mid.endsWith(':') ? mid : mid + ':') : '';
+        const midPart = mid ? mid + ':' : '';
         const full = `${type}:${midPart}${suffix}`;
         preview.textContent = (mid || suffix) ? `预览: ${full}` : '';
     }
@@ -599,7 +677,7 @@
             const mid = row.querySelector('.ca-mid').value.trim();
             const suffix = row.querySelector('.ca-suffix').value.trim();
             if (!mid || !suffix) return;
-            const midKey = mid.endsWith(':') ? mid : mid + ':';
+            const midKey = mid.endsWith(':') ? mid.slice(0, -1) : mid;
             if (!result[type]) result[type] = {};
             if (!result[type][midKey]) result[type][midKey] = [];
             result[type][midKey].push(suffix);
@@ -702,7 +780,9 @@
 
         // 支付宝
         const alipay = setupConfig.importers?.alipay || {};
-        sections.push({ step: 2, title: '支付宝', content: Object.entries(alipay).filter(([k]) => k !== 'category_mapping').map(([k, v]) => `${escapeHtml(k)}: ${escapeHtml(v || '-')}`).join('<br>') });
+        const alipayCm = alipay.category_mapping || {};
+        const alipayCmSummary = Object.entries(alipayCm).map(([k, v]) => `${escapeHtml(k)} → ${escapeHtml(v)}`).join('<br>');
+        sections.push({ step: 2, title: '支付宝', content: Object.entries(alipay).filter(([k]) => k !== 'category_mapping').map(([k, v]) => `${escapeHtml(k)}: ${escapeHtml(v || '-')}`).join('<br>') + (alipayCmSummary ? '<br><br><b>分类映射:</b><br>' + alipayCmSummary : '') });
 
         // 微信
         const wechat = setupConfig.importers?.wechat || {};
@@ -738,12 +818,14 @@
         const ba = setupConfig.balance_accounts || [];
         sections.push({ step: 9, title: '余额账户', content: ba.length ? ba.map(b => escapeHtml(b)).join('<br>') : '-' });
 
-        // 新增账户
+        // 新增账户（包括卡号映射产生的账户）
+        const cardAccAdditions = getCardAccountAdditions();
+        const allNewAccounts = [...tempAccounts, ...cardAccAdditions];
         let newAccHtml = '';
-        if (tempAccounts.length > 0) {
+        if (allNewAccounts.length > 0) {
             newAccHtml = `<div class="border border-blue-200 rounded-lg p-3 bg-blue-50 mt-3">
-                <h4 class="text-sm font-semibold text-blue-800 mb-2">将新增 ${tempAccounts.length} 个账户</h4>
-                <div class="text-xs text-blue-700 font-mono space-y-0.5">${tempAccounts.map(a => `<div>${escapeHtml(a.account_type)}:${escapeHtml(a.path)}</div>`).join('')}</div>
+                <h4 class="text-sm font-semibold text-blue-800 mb-2">将新增 ${allNewAccounts.length} 个账户</h4>
+                <div class="text-xs text-blue-700 font-mono space-y-0.5">${allNewAccounts.map(a => `<div>${escapeHtml(a.account_type)}:${escapeHtml(a.path)}</div>`).join('')}</div>
             </div>`;
         }
 
@@ -802,11 +884,15 @@
             system: { balance_accounts: setupConfig.balance_accounts || [] }
         };
 
+        // 从 card_accounts 中提取账户名，补充到 tempAccounts
+        const cardAccAdditions = getCardAccountAdditions();
+        const allNewAccounts = [...tempAccounts, ...cardAccAdditions];
+
         try {
             const resp = await fetch('/api/setup/complete', {
                 method: 'POST',
                 headers: getAuthHeaders(),
-                body: JSON.stringify({ config: finalConfig, new_accounts: tempAccounts })
+                body: JSON.stringify({ config: finalConfig, new_accounts: allNewAccounts })
             });
             const result = await resp.json();
             if (resp.ok && result.success) {
