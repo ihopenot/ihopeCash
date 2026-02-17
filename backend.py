@@ -471,7 +471,7 @@ include "total.bean"
                 send_progress(1, "git_commit", "success", "无待提交的变更，跳过")
             
             # 2. 下载邮件账单
-            send_progress(2, "download", "running", "正在下载邮件账单...")
+            send_progress(2, "download", "running", "正在下载邮件账单（如需暴力破解密码可能耗时较长）...")
             self.download_bills(passwords)
             files_count = len(glob.glob(os.path.join(self.rawdata_path, "*")))
             send_progress(2, "download", "success", f"邮件下载完成，共 {files_count} 个文件", {"files_count": files_count})

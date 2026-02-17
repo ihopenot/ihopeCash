@@ -4,6 +4,8 @@
 
 import asyncio
 import uuid
+import functools
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Any, List, Set
 from fastapi import WebSocket
 import sys
@@ -13,6 +15,10 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import Config
 from backend import BillManager
+
+
+# 线程池，用于运行同步的导入操作
+_executor = ThreadPoolExecutor(max_workers=2)
 
 
 class TaskManager:
@@ -78,6 +84,9 @@ class TaskManager:
     ):
         """执行导入任务（在后台运行）
         
+        将同步的 import_month_with_progress 放到线程池执行，
+        避免阻塞事件循环，使 WebSocket 消息能实时推送。
+        
         Args:
             task_id: 任务 ID
             year: 年份
@@ -94,30 +103,32 @@ class TaskManager:
             config = Config()
             manager = BillManager(config)
             
-            # 定义进度回调
-            async def progress_callback(progress_data: Dict[str, Any]):
-                """进度回调函数 - 广播到所有连接的 WebSocket"""
-                # 添加 task_id
+            # 获取事件循环引用（在主线程中）
+            loop = asyncio.get_running_loop()
+            
+            # 定义线程安全的进度回调
+            def thread_safe_progress_callback(progress_data: Dict[str, Any]):
+                """从工作线程安全地发送进度到事件循环"""
                 progress_data["task_id"] = task_id
-                
-                # 保存进度到任务状态
                 self.task_status[task_id]["progress"].append(progress_data)
-                
-                # 广播到所有 WebSocket 连接
-                await self.broadcast_progress(task_id, progress_data)
+                # 线程安全地提交协程到事件循环
+                asyncio.run_coroutine_threadsafe(
+                    self.broadcast_progress(task_id, progress_data),
+                    loop
+                )
             
-            # 包装同步回调为异步
-            def sync_progress_callback(progress_data: Dict[str, Any]):
-                asyncio.create_task(progress_callback(progress_data))
-            
-            # 执行导入
-            result = manager.import_month_with_progress(
-                year=year,
-                month=month,
-                balances=balances,
-                mode=mode,
-                passwords=passwords or [],
-                progress_callback=sync_progress_callback
+            # 在线程池中执行同步导入
+            result = await loop.run_in_executor(
+                _executor,
+                functools.partial(
+                    manager.import_month_with_progress,
+                    year=year,
+                    month=month,
+                    balances=balances,
+                    mode=mode,
+                    passwords=passwords or [],
+                    progress_callback=thread_safe_progress_callback
+                )
             )
             
             # 更新最终状态
@@ -136,7 +147,7 @@ class TaskManager:
             await self.broadcast_progress(task_id, {
                 "task_id": task_id,
                 "step": 0,
-                "total": 6,
+                "total": 7,
                 "step_name": "error",
                 "status": "error",
                 "message": str(e)
