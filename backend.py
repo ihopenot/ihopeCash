@@ -12,7 +12,7 @@ import subprocess
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional, Callable, List
+from typing import Dict, Any, Optional, Callable, List, Union
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -95,6 +95,7 @@ class BillManager:
         gitignore_path = os.path.join(self.beancount_path, ".gitignore")
         with open(gitignore_path, "w", encoding="utf-8") as f:
             f.write(".ledger-period\n")
+            f.write("rawdata/\n")
         
         # 首次提交
         self._run_git(["add", "."])
@@ -131,11 +132,14 @@ class BillManager:
         self._run_git(["add", "."])
         self._run_git(["commit", "-m", f"账期 {period}"])
     
-    def git_discard_changes(self):
+    def git_discard_changes(self, include_rawdata: bool = False):
         """丢弃所有未提交的工作区变更
         
         执行 git checkout -- . 恢复已跟踪文件，git clean -fd 删除未跟踪文件，
         并清除 .ledger-period 文件。
+        
+        Args:
+            include_rawdata: 是否同时清空 rawdata/ 目录
         """
         git_dir = os.path.join(self.beancount_path, ".git")
         if not os.path.exists(git_dir):
@@ -144,6 +148,25 @@ class BillManager:
         self._run_git(["checkout", "--", "."])
         self._run_git(["clean", "-fd"])
         self.clear_ledger_period()
+        
+        if include_rawdata:
+            self.clear_rawdata()
+    
+    # ==================== Rawdata 管理 ====================
+    
+    def clear_rawdata(self):
+        """清空 rawdata/ 目录下的所有文件和子目录，目录本身保留
+        
+        用于撤销时可选清空原文件。
+        """
+        if not os.path.exists(self.rawdata_path):
+            return
+        for item in os.listdir(self.rawdata_path):
+            item_path = os.path.join(self.rawdata_path, item)
+            if os.path.isdir(item_path):
+                shutil.rmtree(item_path)
+            else:
+                os.remove(item_path)
     
     # ==================== 账期文件管理 ====================
     
@@ -194,6 +217,39 @@ class BillManager:
         if result.returncode != 0:
             raise RuntimeError(f"bean-identify 失败: {result.stderr}")
         return result.stdout
+    
+    def bean_identify_parsed(self) -> Dict[str, Optional[str]]:
+        """识别文件类型并解析为结构化数据
+        
+        调用 bean-identify 并解析其文本输出，将每个文件与对应的 importer 名称关联。
+        
+        Returns:
+            字典，键为文件名，值为 importer 名称（未识别为 None）
+        """
+        try:
+            output = self.bean_identify()
+        except RuntimeError:
+            return {}
+        
+        result = {}
+        current_file = None
+        
+        for line in output.splitlines():
+            line = line.rstrip()
+            if line.startswith("**** "):
+                # 文件路径行
+                file_path = line[5:].strip()
+                current_file = os.path.basename(file_path)
+                result[current_file] = None
+            elif current_file and line.strip():
+                # importer 名称行
+                importer_name = line.strip()
+                # bean-identify 输出可能是 "Importer:    name" 或直接是 importer 名称
+                if importer_name.startswith("Importer:"):
+                    importer_name = importer_name.split(":", 1)[1].strip()
+                result[current_file] = importer_name
+        
+        return result
     
     def bean_extract(self, output_file: str) -> str:
         """提取交易到指定文件
@@ -428,17 +484,17 @@ include "total.bean"
         month: str, 
         balances: Dict[str, str],
         mode: str,  # "normal", "force", "append"
-        passwords: List[str],
         progress_callback: Optional[ProgressCallback] = None
     ) -> Dict:
-        """带进度回调的完整导入流程
+        """带进度回调的导入流程（5步）
+        
+        步骤: 识别 → 创建目录 → 提取交易 → 余额断言 → 写入账期
         
         Args:
             year: 年份
             month: 月份
             balances: 账户余额字典
             mode: 导入模式 ("normal", "force", "append")
-            passwords: 密码列表
             progress_callback: 进度回调函数
             
         Returns:
@@ -449,7 +505,7 @@ include "total.bean"
             if progress_callback:
                 progress_callback({
                     "step": step,
-                    "total": 7,
+                    "total": 5,
                     "step_name": step_name,
                     "status": status,
                     "message": message,
@@ -457,36 +513,14 @@ include "total.bean"
                 })
         
         try:
-            # 1. Git 提交上期变更
-            send_progress(1, "git_commit", "running", "正在检查版本管理状态...")
-            git_dir = os.path.join(self.beancount_path, ".git")
-            if not os.path.exists(git_dir):
-                send_progress(1, "git_commit", "running", "正在初始化版本管理...")
-                self.git_ensure_repo()
-                send_progress(1, "git_commit", "success", "版本管理初始化完成")
-            elif not self.git_is_clean():
-                send_progress(1, "git_commit", "running", "正在提交上期变更...")
-                prev_period = self.read_ledger_period() or "未知账期"
-                self.git_commit_if_dirty(prev_period)
-                self.clear_ledger_period()
-                send_progress(1, "git_commit", "success", f"上期变更已提交（{prev_period}）")
-            else:
-                send_progress(1, "git_commit", "success", "无待提交的变更，跳过")
-            
-            # 2. 下载邮件账单
-            send_progress(2, "download", "running", "正在下载邮件账单（如需暴力破解密码可能耗时较长）...")
-            self.download_bills(passwords)
-            files_count = len(glob.glob(os.path.join(self.rawdata_path, "*")))
-            send_progress(2, "download", "success", f"邮件下载完成，共 {files_count} 个文件", {"files_count": files_count})
-            
-            # 3. 识别文件类型
-            send_progress(3, "identify", "running", "正在识别文件类型...")
+            # 1. 识别文件类型
+            send_progress(1, "identify", "running", "正在识别文件类型...")
             identify_output = self.bean_identify()
-            send_progress(3, "identify", "success", "文件识别完成", {"output": identify_output})
+            send_progress(1, "identify", "success", "文件识别完成", {"output": identify_output})
             
-            # 4. 创建目录或追加文件
+            # 2. 创建目录或追加文件
             if mode == "append":
-                send_progress(4, "append_file", "running", "正在创建追加文件...")
+                send_progress(2, "append_file", "running", "正在创建追加文件...")
                 if not self.month_directory_exists(year, month):
                     raise RuntimeError(f"目录 {os.path.join(self.data_path, year, month)} 不存在，无法追加")
                 
@@ -502,32 +536,29 @@ include "total.bean"
                 
                 month_path = os.path.join(self.data_path, year, month)
                 extract_target = append_file
-                send_progress(4, "append_file", "success", f"追加文件创建完成: {append_name}.bean")
+                send_progress(2, "append_file", "success", f"追加文件创建完成: {append_name}.bean")
             else:
-                send_progress(4, "create_dir", "running", "正在创建目录结构...")
+                send_progress(2, "create_dir", "running", "正在创建目录结构...")
                 force_overwrite = (mode == "force")
                 month_path = self.create_month_directory(year, month, force_overwrite)
                 extract_target = os.path.join(month_path, "total.bean")
-                send_progress(4, "create_dir", "success", f"目录创建完成: {month_path}")
+                send_progress(2, "create_dir", "success", f"目录创建完成: {month_path}")
             
-            # 5. 提取交易记录
-            send_progress(5, "extract", "running", "正在提取交易记录...")
+            # 3. 提取交易记录
+            send_progress(3, "extract", "running", "正在提取交易记录...")
             self.bean_extract(extract_target)
-            send_progress(5, "extract", "success", "交易提取完成")
+            send_progress(3, "extract", "success", "交易提取完成")
             
-            # 6. 记录余额断言
-            send_progress(6, "balance", "running", "正在记录余额断言...")
+            # 4. 记录余额断言
+            send_progress(4, "balance", "running", "正在记录余额断言...")
             self.record_balances(year, month, balances)
-            send_progress(6, "balance", "success", f"余额记录完成，共 {len(balances)} 个账户")
+            send_progress(4, "balance", "success", f"余额记录完成，共 {len(balances)} 个账户")
             
-            # 7. 归档原始文件
-            send_progress(7, "archive", "running", "正在归档原始文件...")
-            self.bean_archive()
-            send_progress(7, "archive", "success", "归档完成")
-            
-            # 写入本次账期
+            # 5. 写入本次账期
             period = f"{year}-{str(month).zfill(2)}"
+            send_progress(5, "write_period", "running", "正在写入账期...")
             self.write_ledger_period(period)
+            send_progress(5, "write_period", "success", f"账期 {period} 已写入")
             
             return {
                 "success": True,
@@ -593,7 +624,6 @@ include "total.bean"
         year: str,
         month: str,
         balances: Dict[str, str],
-        passwords: List[str] = None,
         progress_callback: Optional[ProgressCallback] = None
     ) -> Dict:
         """追加模式 - 完整流程包括下载
@@ -604,19 +634,60 @@ include "total.bean"
             year: 年份
             month: 月份
             balances: 账户余额字典
-            passwords: 密码列表
             progress_callback: 进度回调函数
             
         Returns:
             {"success": bool, "message": str, "data": dict}
         """
-        if passwords is None:
-            passwords = []
         return self.import_month_with_progress(
             year=year,
             month=month,
             balances=balances,
             mode="append",
-            passwords=passwords,
             progress_callback=progress_callback
         )
+    
+    # ==================== 归档操作 ====================
+    
+    def archive_with_commit(
+        self,
+        message: str,
+        progress_callback: Optional[ProgressCallback] = None
+    ):
+        """执行归档（bean-file）并 git commit
+        
+        Args:
+            message: git commit 提交说明
+            progress_callback: 进度回调函数
+            
+        Raises:
+            RuntimeError: 工作区无变更或归档/提交失败
+        """
+        def send_progress(step: int, step_name: str, status: str, msg: str, details: Optional[Dict] = None):
+            if progress_callback:
+                progress_callback({
+                    "step": step,
+                    "total": 2,
+                    "step_name": step_name,
+                    "status": status,
+                    "message": msg,
+                    "details": details or {}
+                })
+        
+        if self.git_is_clean():
+            raise RuntimeError("无变更需要归档")
+        
+        # 确保 git 仓库已初始化
+        self.git_ensure_repo()
+        
+        # 1. bean-file 归档
+        send_progress(1, "archive", "running", "正在归档原始文件...")
+        self.bean_archive()
+        send_progress(1, "archive", "success", "归档完成")
+        
+        # 2. git commit
+        send_progress(2, "commit", "running", "正在提交变更...")
+        self._run_git(["add", "."])
+        self._run_git(["commit", "-m", message])
+        self.clear_ledger_period()
+        send_progress(2, "commit", "success", "提交完成")

@@ -20,12 +20,7 @@
                         <a href="/fava/" target="_blank" class="px-3 py-1.5 text-sm font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition">账本</a>
                     </div>
                 </div>
-                <button
-                    id="logoutBtn"
-                    class="text-sm text-gray-500 hover:text-gray-700 transition"
-                >
-                    退出登录
-                </button>
+                <button id="logoutBtn" class="text-sm text-gray-500 hover:text-gray-700 transition">退出登录</button>
             </div>
         </div>
     </nav>
@@ -35,34 +30,62 @@
         <!-- 账本状态栏 -->
         <div id="ledgerStatusBar" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center justify-between">
             <div id="ledgerStatusText" class="text-sm text-gray-500">加载中...</div>
-            <button
-                id="discardBtn"
-                class="hidden text-sm text-red-500 hover:text-red-700 font-medium transition px-3 py-1 rounded-lg hover:bg-red-50"
-            >
-                撤销变更
-            </button>
+            <button id="discardBtn" class="hidden text-sm text-red-500 hover:text-red-700 font-medium transition px-3 py-1 rounded-lg hover:bg-red-50">撤销变更</button>
         </div>
 
-        <!-- 账单信息表单 -->
+        <!-- ==================== 1. 获取原文件 ==================== -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-            <h2 class="text-base font-semibold text-gray-800 mb-4">账单信息</h2>
-            
+            <h2 class="text-base font-semibold text-gray-800 mb-4">1. 获取原文件</h2>
+
+            <!-- 邮件下载 -->
+            <div class="border border-gray-200 rounded-lg p-4 mb-4">
+                <h3 class="text-sm font-medium text-gray-700 mb-3">邮件下载</h3>
+                <div id="passwordInputs" class="space-y-2 mb-3"></div>
+                <div id="noPasswordHint" class="text-sm text-gray-400 text-center py-2 mb-3">暂无附件密码</div>
+                <div class="flex justify-between items-center">
+                    <button id="addPasswordBtn" type="button" class="text-sm text-blue-600 hover:text-blue-700 font-medium transition">+ 添加密码</button>
+                    <button id="downloadEmailBtn" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">从邮件下载</button>
+                </div>
+            </div>
+
+            <!-- 本地上传 -->
+            <div class="border border-gray-200 rounded-lg p-4 mb-4">
+                <h3 class="text-sm font-medium text-gray-700 mb-3">本地上传</h3>
+                <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition">
+                    <svg class="mx-auto h-8 w-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    <p class="text-sm text-gray-500">拖拽文件到此处，或 <span class="text-blue-600 font-medium">选择文件</span></p>
+                    <p class="text-xs text-gray-400 mt-1">支持同时上传多个文件</p>
+                    <input id="fileInput" type="file" multiple class="hidden">
+                </div>
+                <div id="uploadStatus" class="text-sm text-gray-500 mt-2 hidden"></div>
+            </div>
+
+            <!-- 原文件列表 -->
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-sm font-medium text-gray-700">当前原文件</h3>
+                    <button id="refreshFilesBtn" class="text-xs text-gray-400 hover:text-gray-600 transition">刷新</button>
+                </div>
+                <div id="rawdataFileList" class="border border-gray-200 rounded-lg divide-y divide-gray-100">
+                    <div class="text-sm text-gray-400 text-center py-4">加载中...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 2. 导入账单 ==================== -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <h2 class="text-base font-semibold text-gray-800 mb-4">2. 导入账单</h2>
+
             <form id="importForm" class="space-y-4">
                 <!-- 年月选择 -->
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label for="year" class="block text-sm font-medium text-gray-600 mb-1">年份</label>
-                        <select
-                            id="year"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
-                        ></select>
+                        <select id="year" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"></select>
                     </div>
                     <div>
                         <label for="month" class="block text-sm font-medium text-gray-600 mb-1">月份</label>
-                        <select
-                            id="month"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
-                        ></select>
+                        <select id="month" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"></select>
                     </div>
                 </div>
 
@@ -83,75 +106,90 @@
                             <span class="text-sm font-medium">追加模式</span>
                         </label>
                     </div>
-                    <div id="modeDescription" class="mt-2 text-xs text-gray-500">
-                        目录已存在时报错
-                    </div>
+                    <div id="modeDescription" class="mt-2 text-xs text-gray-500">目录已存在时报错</div>
                 </div>
             </form>
+
+            <!-- 账户余额 -->
+            <div class="mt-4">
+                <h3 class="text-sm font-medium text-gray-600 mb-3">账户余额</h3>
+                <div id="balanceInputs" class="space-y-3"></div>
+            </div>
+
+            <!-- 开始导入按钮 -->
+            <div class="mt-5 flex gap-3">
+                <button id="startBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-2.5 px-6 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed">开始导入</button>
+                <button id="resetBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 px-6 rounded-xl transition-all duration-200">重置</button>
+            </div>
         </div>
 
-        <!-- 附件密码 -->
+        <!-- ==================== 3. 归档 ==================== -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-            <div class="flex justify-between items-center mb-3">
-                <h2 class="text-base font-semibold text-gray-800">附件密码</h2>
-                <button
-                    id="addPasswordBtn"
-                    type="button"
-                    class="text-sm text-blue-600 hover:text-blue-700 font-medium transition"
-                >
-                    + 添加密码
-                </button>
+            <h2 class="text-base font-semibold text-gray-800 mb-2">3. 归档</h2>
+            <p class="text-xs text-gray-400 mb-4">将原文件移入归档目录，并提交所有变更</p>
+
+            <div class="flex gap-3">
+                <input id="archiveMessage" type="text" placeholder="请输入提交说明" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm disabled:bg-gray-100">
+                <button id="archiveBtn" class="bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-5 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">归档当前修改</button>
             </div>
-            <p class="text-xs text-gray-400 mb-3">PDF/ZIP 附件的解压密码，留空表示无需密码</p>
-            <div id="passwordInputs" class="space-y-2">
-                <!-- 动态生成密码输入框 -->
-            </div>
-            <div id="noPasswordHint" class="text-sm text-gray-400 text-center py-3">
-                暂无密码，点击上方"添加密码"按钮添加
-            </div>
+            <div id="archiveHint" class="text-xs text-gray-400 mt-2 hidden"></div>
         </div>
 
-        <!-- 账户余额表单 -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-            <h2 class="text-base font-semibold text-gray-800 mb-4">账户余额</h2>
-            <div id="balanceInputs" class="space-y-3">
-                <!-- 动态生成余额输入框 -->
-            </div>
-        </div>
-
-        <!-- 执行日志 -->
+        <!-- ==================== 执行日志 ==================== -->
         <div id="progressSection" class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hidden">
             <h2 class="text-base font-semibold text-gray-800 mb-3">执行日志</h2>
-            <div
-                id="logArea"
-                class="bg-gray-50 rounded-lg p-3 max-h-80 overflow-y-auto font-mono text-sm space-y-0.5"
-            >
-            </div>
+            <div id="logArea" class="bg-gray-50 rounded-lg p-3 max-h-80 overflow-y-auto font-mono text-sm space-y-0.5"></div>
         </div>
 
-        <!-- 按钮组 -->
-        <div class="flex gap-3">
-            <button
-                id="startBtn"
-                class="flex-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-2.5 px-6 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                开始导入
-            </button>
-            <button
-                id="resetBtn"
-                class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 px-6 rounded-xl transition-all duration-200"
-            >
-                重置
-            </button>
+    </div>
+
+    <!-- ==================== 撤销确认对话框 ==================== -->
+    <div id="discardModal" class="fixed inset-0 z-50 hidden">
+        <div class="fixed inset-0 bg-black/50" id="discardModalOverlay"></div>
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 relative">
+                <h3 class="text-lg font-semibold text-gray-900 mb-3">确认撤销变更？</h3>
+                <label class="flex items-start gap-3 mb-4 cursor-pointer">
+                    <input type="checkbox" id="discardRawdataCheckbox" class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                    <div>
+                        <span class="text-sm font-medium text-gray-700">同时清空原文件目录</span>
+                        <p class="text-xs text-gray-500 mt-0.5">勾选后将同时删除原文件目录中的所有文件，否则仅回退导入结果，保留原文件。</p>
+                    </div>
+                </label>
+                <div class="flex justify-end gap-3">
+                    <button id="discardCancelBtn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition">取消</button>
+                    <button id="discardConfirmBtn" class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition">确认撤销</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 归档确认对话框（导入前检查） ==================== -->
+    <div id="archiveBeforeImportModal" class="fixed inset-0 z-50 hidden">
+        <div class="fixed inset-0 bg-black/50" id="archiveBeforeImportOverlay"></div>
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 relative">
+                <h3 class="text-lg font-semibold text-gray-900 mb-3">有未归档的变更</h3>
+                <p class="text-sm text-gray-600 mb-4">检测到有未归档的变更，需要先归档后才能继续导入。</p>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-600 mb-1">提交说明</label>
+                    <input id="preArchiveMessage" type="text" placeholder="请输入提交说明" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm">
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button id="preArchiveCancelBtn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition">取消</button>
+                    <button id="preArchiveConfirmBtn" class="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition">先归档再导入</button>
+                </div>
+            </div>
         </div>
     </div>
 
     <script src="/static/auth.js"></script>
     <script>
         // ==================== 全局变量 ====================
-        let config = null;
+        let appConfig = null;
         let ws = null;
         let currentTaskId = null;
+        let rawdataFiles = [];
 
         // DOM 元素
         const ledgerStatusText = document.getElementById('ledgerStatusText');
@@ -163,12 +201,33 @@
         const passwordInputs = document.getElementById('passwordInputs');
         const noPasswordHint = document.getElementById('noPasswordHint');
         const addPasswordBtn = document.getElementById('addPasswordBtn');
+        const downloadEmailBtn = document.getElementById('downloadEmailBtn');
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const uploadStatus = document.getElementById('uploadStatus');
+        const rawdataFileList = document.getElementById('rawdataFileList');
+        const refreshFilesBtn = document.getElementById('refreshFilesBtn');
         const progressSection = document.getElementById('progressSection');
         const logArea = document.getElementById('logArea');
         const startBtn = document.getElementById('startBtn');
         const resetBtn = document.getElementById('resetBtn');
         const logoutBtn = document.getElementById('logoutBtn');
         const modeDescription = document.getElementById('modeDescription');
+        const archiveMessage = document.getElementById('archiveMessage');
+        const archiveBtn = document.getElementById('archiveBtn');
+        const archiveHint = document.getElementById('archiveHint');
+
+        // 模态框
+        const discardModal = document.getElementById('discardModal');
+        const discardModalOverlay = document.getElementById('discardModalOverlay');
+        const discardRawdataCheckbox = document.getElementById('discardRawdataCheckbox');
+        const discardCancelBtn = document.getElementById('discardCancelBtn');
+        const discardConfirmBtn = document.getElementById('discardConfirmBtn');
+        const archiveBeforeImportModal = document.getElementById('archiveBeforeImportModal');
+        const archiveBeforeImportOverlay = document.getElementById('archiveBeforeImportOverlay');
+        const preArchiveMessage = document.getElementById('preArchiveMessage');
+        const preArchiveCancelBtn = document.getElementById('preArchiveCancelBtn');
+        const preArchiveConfirmBtn = document.getElementById('preArchiveConfirmBtn');
 
         const modeDescriptions = {
             normal: '目录已存在时报错',
@@ -182,21 +241,13 @@
             if (!checkAuth()) return;
 
             try {
-                const response = await fetch('/api/config', {
-                    headers: getAuthHeaders()
-                });
-
-                if (response.status === 401) {
-                    clearAuthToken();
-                    window.location.href = '/login';
-                    return;
-                }
-
-                config = await response.json();
+                const response = await fetch('/api/config', { headers: getAuthHeaders() });
+                if (response.status === 401) { clearAuthToken(); window.location.href = '/login'; return; }
+                appConfig = await response.json();
                 initYearMonth();
                 initBalanceInputs();
                 initModeRadios();
-                await loadLedgerStatus();
+                await Promise.all([loadLedgerStatus(), loadRawdataFiles()]);
             } catch (error) {
                 console.error('Init error:', error);
                 alert('加载配置失败');
@@ -207,12 +258,11 @@
 
         async function loadLedgerStatus() {
             try {
-                const response = await fetch('/api/ledger-status', {
-                    headers: getAuthHeaders()
-                });
+                const response = await fetch('/api/ledger-status', { headers: getAuthHeaders() });
                 if (response.status === 401) return;
                 const data = await response.json();
-                renderLedgerStatus(data.period);
+                renderLedgerStatus(data);
+                updateArchiveState(data.is_clean);
             } catch (error) {
                 console.error('Load ledger status error:', error);
                 ledgerStatusText.textContent = '状态获取失败';
@@ -220,13 +270,15 @@
             }
         }
 
-        function renderLedgerStatus(period) {
-            if (period) {
-                const parts = period.split('-');
-                const year = parts[0];
-                const month = parseInt(parts[1], 10);
-                ledgerStatusText.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-blue-500 mr-2"></span>当前账期: ' + year + '年' + month + '月';
+        function renderLedgerStatus(data) {
+            if (data.period) {
+                const parts = data.period.split('-');
+                ledgerStatusText.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-blue-500 mr-2"></span>当前账期: ' + parts[0] + '年' + parseInt(parts[1], 10) + '月';
                 ledgerStatusText.className = 'text-sm text-gray-700 font-medium';
+                discardBtn.classList.remove('hidden');
+            } else if (!data.is_clean) {
+                ledgerStatusText.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-yellow-500 mr-2"></span>有未归档的变更';
+                ledgerStatusText.className = 'text-sm text-yellow-700 font-medium';
                 discardBtn.classList.remove('hidden');
             } else {
                 ledgerStatusText.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-green-500 mr-2"></span>账本已同步';
@@ -235,28 +287,222 @@
             }
         }
 
-        discardBtn.addEventListener('click', async () => {
-            const confirmed = confirm('即将丢弃上次提交以来的所有修改，此操作不可恢复。\n\n确认撤销吗？');
-            if (!confirmed) return;
+        function updateArchiveState(isClean) {
+            if (isClean) {
+                archiveBtn.disabled = true;
+                archiveMessage.disabled = true;
+                archiveHint.textContent = '无需归档';
+                archiveHint.classList.remove('hidden');
+            } else {
+                archiveBtn.disabled = false;
+                archiveMessage.disabled = false;
+                archiveHint.classList.add('hidden');
+            }
+        }
+
+        // ==================== 撤销弹窗 ====================
+
+        discardBtn.addEventListener('click', () => {
+            discardRawdataCheckbox.checked = false;
+            discardModal.classList.remove('hidden');
+        });
+
+        discardCancelBtn.addEventListener('click', () => discardModal.classList.add('hidden'));
+        discardModalOverlay.addEventListener('click', () => discardModal.classList.add('hidden'));
+
+        discardConfirmBtn.addEventListener('click', async () => {
+            const includeRawdata = discardRawdataCheckbox.checked;
+            discardConfirmBtn.disabled = true;
 
             try {
-                discardBtn.disabled = true;
                 const response = await fetch('/api/ledger-discard', {
                     method: 'POST',
-                    headers: getAuthHeaders()
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ include_rawdata: includeRawdata })
                 });
                 const data = await response.json();
                 if (data.success) {
-                    await loadLedgerStatus();
+                    discardModal.classList.add('hidden');
+                    await Promise.all([loadLedgerStatus(), loadRawdataFiles()]);
                 } else {
                     alert('撤销失败: ' + data.message);
                 }
             } catch (error) {
                 alert('撤销失败: ' + error.message);
             } finally {
-                discardBtn.disabled = false;
+                discardConfirmBtn.disabled = false;
             }
         });
+
+        // ==================== 原文件管理 ====================
+
+        async function loadRawdataFiles() {
+            try {
+                const response = await fetch('/api/rawdata/files', { headers: getAuthHeaders() });
+                if (response.status === 401) return;
+                const data = await response.json();
+                rawdataFiles = data.files || [];
+                renderRawdataFiles();
+            } catch (error) {
+                console.error('Load rawdata files error:', error);
+                rawdataFileList.innerHTML = '<div class="text-sm text-red-400 text-center py-4">加载失败</div>';
+            }
+        }
+
+        function renderRawdataFiles() {
+            if (rawdataFiles.length === 0) {
+                rawdataFileList.innerHTML = '<div class="text-sm text-gray-400 text-center py-4">暂无原文件</div>';
+                return;
+            }
+            rawdataFileList.innerHTML = rawdataFiles.map(file => `
+                <div class="flex items-center justify-between px-3 py-2.5 text-sm">
+                    <div class="flex items-center gap-3 min-w-0 flex-1">
+                        <span class="text-gray-800 truncate font-medium">${escapeHtml(file.name)}</span>
+                        <span class="text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${file.importer ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">${file.importer ? escapeHtml(file.importer) : '（未识别）'}</span>
+                    </div>
+                    <button onclick="deleteRawdataFile('${escapeHtml(file.name)}')" class="text-gray-400 hover:text-red-500 transition p-1 shrink-0" title="删除">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        async function deleteRawdataFile(name) {
+            if (!confirm(`确认删除文件 "${name}"？`)) return;
+            try {
+                const response = await fetch(`/api/rawdata/files/${encodeURIComponent(name)}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+                const data = await response.json();
+                if (data.success) {
+                    await loadRawdataFiles();
+                } else {
+                    alert('删除失败: ' + data.message);
+                }
+            } catch (error) {
+                alert('删除失败: ' + error.message);
+            }
+        }
+
+        refreshFilesBtn.addEventListener('click', loadRawdataFiles);
+
+        // ==================== 邮件下载 ====================
+
+        addPasswordBtn.addEventListener('click', () => addPasswordInput());
+
+        function addPasswordInput(value = '') {
+            const div = document.createElement('div');
+            div.className = 'flex items-center gap-2';
+            div.innerHTML = `
+                <input type="password" class="password-field flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" placeholder="输入密码" value="${escapeHtml(value)}"/>
+                <button type="button" class="remove-password-btn text-gray-400 hover:text-red-500 transition p-1" title="删除">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            `;
+            passwordInputs.appendChild(div);
+            noPasswordHint.classList.add('hidden');
+
+            div.querySelector('.remove-password-btn').addEventListener('click', () => {
+                div.remove();
+                if (passwordInputs.children.length === 0) noPasswordHint.classList.remove('hidden');
+            });
+        }
+
+        function getPasswords() {
+            const passwords = [];
+            passwordInputs.querySelectorAll('.password-field').forEach(input => {
+                const val = input.value.trim();
+                if (val) passwords.push(val);
+            });
+            return passwords;
+        }
+
+        downloadEmailBtn.addEventListener('click', async () => {
+            downloadEmailBtn.disabled = true;
+            showProgressSection();
+            clearLog();
+            addLog('正在启动邮件下载...', 'running');
+
+            try {
+                const response = await fetch('/api/rawdata/download-email', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ passwords: getPasswords() })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    currentTaskId = data.task_id;
+                    connectWebSocket(data.task_id, () => {
+                        downloadEmailBtn.disabled = false;
+                        loadRawdataFiles();
+                    });
+                } else {
+                    addLog('下载失败: ' + data.message, 'error');
+                    downloadEmailBtn.disabled = false;
+                }
+            } catch (error) {
+                addLog('网络错误: ' + error.message, 'error');
+                downloadEmailBtn.disabled = false;
+            }
+        });
+
+        // ==================== 文件上传 ====================
+
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-blue-400', 'bg-blue-50');
+        });
+
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-blue-400', 'bg-blue-50');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-blue-400', 'bg-blue-50');
+            if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) uploadFiles(fileInput.files);
+            fileInput.value = '';
+        });
+
+        async function uploadFiles(fileList) {
+            uploadStatus.textContent = '正在上传...';
+            uploadStatus.classList.remove('hidden');
+
+            const formData = new FormData();
+            for (const file of fileList) {
+                formData.append('files', file);
+            }
+
+            try {
+                const token = getAuthToken();
+                const response = await fetch('/api/rawdata/upload', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+                const data = await response.json();
+                if (data.success) {
+                    uploadStatus.textContent = `上传完成: ${data.files.join(', ')}`;
+                    await loadRawdataFiles();
+                } else {
+                    uploadStatus.textContent = '上传失败: ' + (data.detail || data.message);
+                }
+            } catch (error) {
+                uploadStatus.textContent = '上传失败: ' + error.message;
+            }
+
+            setTimeout(() => uploadStatus.classList.add('hidden'), 3000);
+        }
+
+        // ==================== 年月/余额/模式 ====================
 
         function initYearMonth() {
             const currentYear = new Date().getFullYear();
@@ -264,34 +510,27 @@
                 const option = document.createElement('option');
                 option.value = y;
                 option.textContent = y;
-                if (y === config.default_year) option.selected = true;
+                if (y === appConfig.default_year) option.selected = true;
                 yearSelect.appendChild(option);
             }
-
             for (let m = 1; m <= 12; m++) {
                 const option = document.createElement('option');
                 option.value = m;
                 option.textContent = m.toString().padStart(2, '0');
-                if (m === config.default_month) option.selected = true;
+                if (m === appConfig.default_month) option.selected = true;
                 monthSelect.appendChild(option);
             }
         }
 
         function initBalanceInputs() {
             balanceInputs.innerHTML = '';
-            config.balance_accounts.forEach(account => {
+            appConfig.balance_accounts.forEach(account => {
                 const div = document.createElement('div');
                 div.className = 'flex items-center gap-3';
                 div.innerHTML = `
                     <label class="w-1/2 text-sm text-gray-600 truncate" title="${escapeHtml(account)}">${escapeHtml(account)}</label>
                     <div class="flex-1 flex items-center gap-2">
-                        <input
-                            type="text"
-                            data-account="${escapeHtml(account)}"
-                            class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
-                            placeholder="输入余额"
-                            required
-                        />
+                        <input type="text" data-account="${escapeHtml(account)}" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" placeholder="输入余额" required/>
                         <span class="text-xs text-gray-400 w-8">CNY</span>
                     </div>
                 `;
@@ -307,53 +546,14 @@
             });
         }
 
-        // ==================== Passwords 动态列表 ====================
-
-        addPasswordBtn.addEventListener('click', () => {
-            addPasswordInput();
-        });
-
-        function addPasswordInput(value = '') {
-            const div = document.createElement('div');
-            div.className = 'flex items-center gap-2';
-            div.innerHTML = `
-                <input
-                    type="password"
-                    class="password-field flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
-                    placeholder="输入密码"
-                    value="${escapeHtml(value)}"
-                />
-                <button type="button" class="remove-password-btn text-gray-400 hover:text-red-500 transition p-1" title="删除">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            `;
-            passwordInputs.appendChild(div);
-            noPasswordHint.classList.add('hidden');
-
-            div.querySelector('.remove-password-btn').addEventListener('click', () => {
-                div.remove();
-                if (passwordInputs.children.length === 0) {
-                    noPasswordHint.classList.remove('hidden');
-                }
-            });
-        }
-
-        function getPasswords() {
-            const passwords = [];
-            passwordInputs.querySelectorAll('.password-field').forEach(input => {
-                const val = input.value.trim();
-                if (val) passwords.push(val);
-            });
-            return passwords;
-        }
-
-        // ==================== 表单提交 ====================
+        // ==================== 导入 ====================
 
         startBtn.addEventListener('click', async () => {
-            const year = yearSelect.value;
-            const month = monthSelect.value;
-            const mode = document.querySelector('input[name="mode"]:checked').value;
-            const passwords = getPasswords();
+            // 验证 rawdata 有文件
+            if (rawdataFiles.length === 0) {
+                alert('请先获取原文件');
+                return;
+            }
 
             // 收集余额
             const balances = {};
@@ -363,12 +563,7 @@
             balanceFields.forEach(input => {
                 const account = input.dataset.account;
                 const value = input.value.trim();
-
-                if (!value) {
-                    isValid = false;
-                    input.classList.add('border-red-400');
-                    input.classList.remove('border-gray-300');
-                } else if (isNaN(parseFloat(value))) {
+                if (!value || isNaN(parseFloat(value))) {
                     isValid = false;
                     input.classList.add('border-red-400');
                     input.classList.remove('border-gray-300');
@@ -384,113 +579,233 @@
                 return;
             }
 
-            disableForm();
-            progressSection.classList.remove('hidden');
-            logArea.innerHTML = '';
-            addLog('准备开始...', 'running');
+            // 检查工作区状态
+            try {
+                const statusResp = await fetch('/api/ledger-status', { headers: getAuthHeaders() });
+                const statusData = await statusResp.json();
+
+                if (!statusData.is_clean) {
+                    // 有未归档变更，弹出归档对话框
+                    preArchiveMessage.value = '';
+                    archiveBeforeImportModal.classList.remove('hidden');
+
+                    // 等待用户操作
+                    await new Promise((resolve, reject) => {
+                        const onConfirm = async () => {
+                            cleanup();
+                            const msg = preArchiveMessage.value.trim();
+                            if (!msg) { alert('请填写提交说明'); return; }
+                            archiveBeforeImportModal.classList.add('hidden');
+
+                            // 先执行归档
+                            showProgressSection();
+                            clearLog();
+                            addLog('正在归档上次变更...', 'running');
+
+                            try {
+                                const archiveResp = await fetch('/api/archive', {
+                                    method: 'POST',
+                                    headers: getAuthHeaders(),
+                                    body: JSON.stringify({ message: msg })
+                                });
+                                const archiveData = await archiveResp.json();
+                                if (archiveData.success) {
+                                    // 等归档任务完成
+                                    await waitForTask(archiveData.task_id);
+                                    addLog('归档完成', 'success');
+                                    await loadLedgerStatus();
+                                    resolve();
+                                } else {
+                                    addLog('归档失败: ' + archiveData.message, 'error');
+                                    reject(new Error('归档失败'));
+                                }
+                            } catch (e) {
+                                addLog('归档失败: ' + e.message, 'error');
+                                reject(e);
+                            }
+                        };
+                        const onCancel = () => { cleanup(); archiveBeforeImportModal.classList.add('hidden'); reject(new Error('cancel')); };
+                        const cleanup = () => {
+                            preArchiveConfirmBtn.removeEventListener('click', onConfirm);
+                            preArchiveCancelBtn.removeEventListener('click', onCancel);
+                            archiveBeforeImportOverlay.removeEventListener('click', onCancel);
+                        };
+                        preArchiveConfirmBtn.addEventListener('click', onConfirm);
+                        preArchiveCancelBtn.addEventListener('click', onCancel);
+                        archiveBeforeImportOverlay.addEventListener('click', onCancel);
+                    });
+                }
+            } catch (error) {
+                if (error.message === 'cancel') return;
+                // 状态检查失败，继续尝试导入
+            }
+
+            // 执行导入
+            const year = yearSelect.value;
+            const month = monthSelect.value;
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+
+            disableImportForm();
+            showProgressSection();
+            clearLog();
+            addLog('准备开始导入...', 'running');
 
             try {
                 const response = await fetch('/api/import', {
                     method: 'POST',
                     headers: getAuthHeaders(),
-                    body: JSON.stringify({ year, month, mode, balances, passwords })
+                    body: JSON.stringify({ year, month, mode, balances })
                 });
 
-                if (response.status === 401) {
-                    clearAuthToken();
-                    window.location.href = '/login';
-                    return;
-                }
+                if (response.status === 401) { clearAuthToken(); window.location.href = '/login'; return; }
 
                 const contentType = response.headers.get('content-type') || '';
                 if (!response.ok || !contentType.includes('application/json')) {
                     addLog(`服务器错误 (${response.status})，请稍后重试`, 'error');
-                    enableForm();
+                    enableImportForm();
                     return;
                 }
 
                 const data = await response.json();
-
                 if (data.success) {
                     currentTaskId = data.task_id;
                     addLog('任务已创建，正在连接...', 'success');
-                    connectWebSocket(currentTaskId);
+                    connectWebSocket(currentTaskId, () => {
+                        enableImportForm();
+                        loadLedgerStatus();
+                        loadRawdataFiles();
+                    });
                 } else {
                     addLog('启动任务失败: ' + data.message, 'error');
-                    enableForm();
+                    enableImportForm();
                 }
-
             } catch (error) {
                 console.error('Import error:', error);
                 addLog('网络错误: ' + error.message, 'error');
-                enableForm();
+                enableImportForm();
+            }
+        });
+
+        // ==================== 归档 ====================
+
+        archiveBtn.addEventListener('click', async () => {
+            const message = archiveMessage.value.trim();
+            if (!message) {
+                alert('请填写提交说明');
+                archiveMessage.focus();
+                return;
+            }
+
+            archiveBtn.disabled = true;
+            showProgressSection();
+            clearLog();
+            addLog('正在启动归档...', 'running');
+
+            try {
+                const response = await fetch('/api/archive', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ message })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    currentTaskId = data.task_id;
+                    connectWebSocket(data.task_id, () => {
+                        archiveBtn.disabled = false;
+                        archiveMessage.value = '';
+                        loadLedgerStatus();
+                        loadRawdataFiles();
+                    });
+                } else {
+                    addLog('归档失败: ' + data.message, 'error');
+                    archiveBtn.disabled = false;
+                }
+            } catch (error) {
+                addLog('网络错误: ' + error.message, 'error');
+                archiveBtn.disabled = false;
             }
         });
 
         // ==================== WebSocket ====================
 
-        function connectWebSocket(taskId) {
+        function connectWebSocket(taskId, onComplete) {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = `${protocol}//${window.location.host}/ws/progress`;
 
             ws = new WebSocket(wsUrl);
 
             ws.onopen = () => {
-                addLog('连接已建立', 'success');
                 ws.send(JSON.stringify({ token: getAuthToken(), task_id: taskId }));
             };
 
             ws.onmessage = (event) => {
                 const progress = JSON.parse(event.data);
-                handleProgress(progress);
+                handleProgress(progress, onComplete);
             };
 
-            ws.onerror = (error) => {
-                addLog('WebSocket 错误', 'error');
-                console.error('WebSocket error:', error);
+            ws.onerror = () => {
+                addLog('连接错误', 'error');
+                if (onComplete) onComplete();
             };
 
-            ws.onclose = () => {
-                addLog('连接已关闭', 'success');
-            };
+            ws.onclose = () => {};
         }
 
-        function handleProgress(progress) {
+        function handleProgress(progress, onComplete) {
             const { step, total, step_name, status, message, details } = progress;
-
             const stepText = step > 0 ? `[${step}/${total}] ` : '';
             addLog(`${stepText}${message}`, status);
 
-            if (details) {
-                if (details.output) {
-                    addLog(`  ${details.output}`, 'running');
-                }
-                if (details.files_count) {
-                    addLog(`  文件数: ${details.files_count}`, 'running');
-                }
-            }
-
             if (status === 'success' && step === total) {
-                addLog('导入完成!', 'success');
-                enableForm();
                 closeWebSocket();
-                loadLedgerStatus();
+                if (onComplete) onComplete();
             }
 
             if (status === 'error') {
-                enableForm();
                 closeWebSocket();
+                if (onComplete) onComplete();
             }
         }
 
         function closeWebSocket() {
-            if (ws) {
-                ws.close();
-                ws = null;
-            }
+            if (ws) { ws.close(); ws = null; }
+        }
+
+        function waitForTask(taskId) {
+            return new Promise((resolve) => {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/ws/progress`;
+                const taskWs = new WebSocket(wsUrl);
+
+                taskWs.onopen = () => {
+                    taskWs.send(JSON.stringify({ token: getAuthToken(), task_id: taskId }));
+                };
+
+                taskWs.onmessage = (event) => {
+                    const progress = JSON.parse(event.data);
+                    const { step, total, status, message } = progress;
+                    const stepText = step > 0 ? `[${step}/${total}] ` : '';
+                    addLog(`${stepText}${message}`, status);
+
+                    if ((status === 'success' && step === total) || status === 'error') {
+                        taskWs.close();
+                        resolve();
+                    }
+                };
+
+                taskWs.onerror = () => { taskWs.close(); resolve(); };
+            });
         }
 
         // ==================== 日志 ====================
+
+        function showProgressSection() {
+            progressSection.classList.remove('hidden');
+        }
+
+        function clearLog() {
+            logArea.innerHTML = '';
+        }
 
         function addLog(message, status = '') {
             const entry = document.createElement('div');
@@ -498,18 +813,9 @@
             let cssClass = 'log-entry';
 
             switch (status) {
-                case 'success':
-                    icon = '\u2713 ';
-                    cssClass += ' log-success';
-                    break;
-                case 'error':
-                    icon = '\u2717 ';
-                    cssClass += ' log-error';
-                    break;
-                case 'running':
-                    icon = '\u25b6 ';
-                    cssClass += ' log-running';
-                    break;
+                case 'success': icon = '\u2713 '; cssClass += ' log-success'; break;
+                case 'error': icon = '\u2717 '; cssClass += ' log-error'; break;
+                case 'running': icon = '\u25b6 '; cssClass += ' log-running'; break;
             }
 
             entry.className = cssClass;
@@ -520,19 +826,15 @@
 
         // ==================== 表单控制 ====================
 
-        function disableForm() {
+        function disableImportForm() {
             importForm.querySelectorAll('input, select').forEach(el => el.disabled = true);
             balanceInputs.querySelectorAll('input').forEach(el => el.disabled = true);
-            passwordInputs.querySelectorAll('input, button').forEach(el => el.disabled = true);
-            addPasswordBtn.disabled = true;
             startBtn.disabled = true;
         }
 
-        function enableForm() {
+        function enableImportForm() {
             importForm.querySelectorAll('input, select').forEach(el => el.disabled = false);
             balanceInputs.querySelectorAll('input').forEach(el => el.disabled = false);
-            passwordInputs.querySelectorAll('input, button').forEach(el => el.disabled = false);
-            addPasswordBtn.disabled = false;
             startBtn.disabled = false;
         }
 
@@ -540,7 +842,7 @@
 
         resetBtn.addEventListener('click', () => {
             closeWebSocket();
-            logArea.innerHTML = '';
+            clearLog();
             progressSection.classList.add('hidden');
 
             balanceInputs.querySelectorAll('input').forEach(input => {
@@ -549,22 +851,16 @@
                 input.classList.add('border-gray-300');
             });
 
-            // 清空密码列表
-            passwordInputs.innerHTML = '';
-            noPasswordHint.classList.remove('hidden');
-
             document.querySelector('input[name="mode"][value="normal"]').checked = true;
             modeDescription.textContent = modeDescriptions.normal;
 
-            enableForm();
+            enableImportForm();
             currentTaskId = null;
         });
 
         // ==================== 退出登录 ====================
 
-        logoutBtn.addEventListener('click', () => {
-            logout();
-        });
+        logoutBtn.addEventListener('click', () => logout());
 
         // ==================== 页面加载 ====================
 

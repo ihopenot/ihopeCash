@@ -36,8 +36,7 @@ class TaskManager:
         year: str,
         month: str,
         balances: Dict[str, str],
-        mode: str,
-        passwords: List[str] = None
+        mode: str
     ) -> str:
         """创建新的导入任务
         
@@ -46,7 +45,6 @@ class TaskManager:
             month: 月份
             balances: 账户余额字典
             mode: 导入模式 (normal/force/append)
-            passwords: 附件解压密码列表
             
         Returns:
             task_id
@@ -67,7 +65,7 @@ class TaskManager:
         
         # 创建异步任务
         task = asyncio.create_task(
-            self._execute_import(task_id, year, month, balances, mode, passwords or [])
+            self._execute_import(task_id, year, month, balances, mode)
         )
         self.active_tasks[task_id] = task
         
@@ -79,8 +77,7 @@ class TaskManager:
         year: str,
         month: str,
         balances: Dict[str, str],
-        mode: str,
-        passwords: List[str] = None
+        mode: str
     ):
         """执行导入任务（在后台运行）
         
@@ -93,7 +90,6 @@ class TaskManager:
             month: 月份
             balances: 账户余额字典
             mode: 导入模式
-            passwords: 附件解压密码列表
         """
         try:
             # 更新状态为运行中
@@ -126,7 +122,6 @@ class TaskManager:
                     month=month,
                     balances=balances,
                     mode=mode,
-                    passwords=passwords or [],
                     progress_callback=thread_safe_progress_callback
                 )
             )
@@ -147,7 +142,7 @@ class TaskManager:
             await self.broadcast_progress(task_id, {
                 "task_id": task_id,
                 "step": 0,
-                "total": 7,
+                "total": 5,
                 "step_name": "error",
                 "status": "error",
                 "message": str(e)
@@ -170,6 +165,147 @@ class TaskManager:
             self.websocket_connections[task_id] = set()
         
         self.websocket_connections[task_id].add(websocket)
+    
+    async def create_download_task(self, passwords: list = None) -> str:
+        """创建邮件下载任务
+        
+        Args:
+            passwords: 附件解压密码列表
+            
+        Returns:
+            task_id
+        """
+        task_id = str(uuid.uuid4())
+        
+        self.task_status[task_id] = {
+            "status": "pending",
+            "type": "download",
+            "progress": []
+        }
+        self.websocket_connections[task_id] = set()
+        
+        task = asyncio.create_task(
+            self._execute_download(task_id, passwords or [])
+        )
+        self.active_tasks[task_id] = task
+        
+        return task_id
+    
+    async def _execute_download(self, task_id: str, passwords: list):
+        """执行邮件下载任务"""
+        import glob as glob_module
+        
+        try:
+            self.task_status[task_id]["status"] = "running"
+            
+            config = Config()
+            manager = BillManager(config)
+            loop = asyncio.get_running_loop()
+            
+            def thread_safe_progress(progress_data):
+                progress_data["task_id"] = task_id
+                self.task_status[task_id]["progress"].append(progress_data)
+                asyncio.run_coroutine_threadsafe(
+                    self.broadcast_progress(task_id, progress_data),
+                    loop
+                )
+            
+            def do_download():
+                thread_safe_progress({
+                    "step": 1, "total": 1, "step_name": "download",
+                    "status": "running", "message": "正在下载邮件账单...", "details": {}
+                })
+                try:
+                    manager.download_bills(passwords)
+                    files_count = len(glob_module.glob(os.path.join(manager.rawdata_path, "*")))
+                    thread_safe_progress({
+                        "step": 1, "total": 1, "step_name": "download",
+                        "status": "success",
+                        "message": f"邮件下载完成，共 {files_count} 个文件",
+                        "details": {"files_count": files_count}
+                    })
+                except Exception as e:
+                    thread_safe_progress({
+                        "step": 1, "total": 1, "step_name": "download",
+                        "status": "error", "message": str(e), "details": {}
+                    })
+                    raise
+            
+            await loop.run_in_executor(_executor, do_download)
+            self.task_status[task_id]["status"] = "completed"
+            
+        except Exception as e:
+            self.task_status[task_id]["status"] = "failed"
+            self.task_status[task_id]["error"] = str(e)
+        finally:
+            async with self.lock:
+                if task_id in self.active_tasks:
+                    del self.active_tasks[task_id]
+    
+    async def create_archive_task(self, message: str) -> str:
+        """创建归档任务
+        
+        Args:
+            message: git commit 提交说明
+            
+        Returns:
+            task_id
+        """
+        task_id = str(uuid.uuid4())
+        
+        self.task_status[task_id] = {
+            "status": "pending",
+            "type": "archive",
+            "progress": []
+        }
+        self.websocket_connections[task_id] = set()
+        
+        task = asyncio.create_task(
+            self._execute_archive(task_id, message)
+        )
+        self.active_tasks[task_id] = task
+        
+        return task_id
+    
+    async def _execute_archive(self, task_id: str, message: str):
+        """执行归档任务"""
+        try:
+            self.task_status[task_id]["status"] = "running"
+            
+            config = Config()
+            manager = BillManager(config)
+            loop = asyncio.get_running_loop()
+            
+            def thread_safe_progress(progress_data):
+                progress_data["task_id"] = task_id
+                self.task_status[task_id]["progress"].append(progress_data)
+                asyncio.run_coroutine_threadsafe(
+                    self.broadcast_progress(task_id, progress_data),
+                    loop
+                )
+            
+            await loop.run_in_executor(
+                _executor,
+                functools.partial(
+                    manager.archive_with_commit,
+                    message=message,
+                    progress_callback=thread_safe_progress
+                )
+            )
+            self.task_status[task_id]["status"] = "completed"
+            
+        except Exception as e:
+            self.task_status[task_id]["status"] = "failed"
+            self.task_status[task_id]["error"] = str(e)
+            await self.broadcast_progress(task_id, {
+                "task_id": task_id,
+                "step": 0, "total": 2, "step_name": "error",
+                "status": "error", "message": str(e)
+            })
+        finally:
+            async with self.lock:
+                if task_id in self.active_tasks:
+                    del self.active_tasks[task_id]
     
     async def remove_websocket(self, task_id: str, websocket: WebSocket):
         """移除 WebSocket 连接

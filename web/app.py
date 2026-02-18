@@ -2,7 +2,7 @@
 FastAPI 主应用 - IhopeCash Web 界面
 """
 
-from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect, Request, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -168,7 +168,21 @@ class ImportRequest(BaseModel):
     month: str
     mode: str  # "normal", "force", "append"
     balances: Dict[str, str]
+
+
+class EmailDownloadRequest(BaseModel):
+    """邮件下载请求"""
     passwords: List[str] = []
+
+
+class ArchiveRequest(BaseModel):
+    """归档请求"""
+    message: str
+
+
+class DiscardRequest(BaseModel):
+    """撤销请求"""
+    include_rawdata: bool = False
 
 
 class ChangePasswordRequest(BaseModel):
@@ -387,14 +401,196 @@ async def start_import(
         year=request.year,
         month=request.month,
         balances=request.balances,
-        mode=request.mode,
-        passwords=request.passwords
+        mode=request.mode
     )
     
     return {
         "success": True,
         "task_id": task_id,
         "message": "导入任务已启动"
+    }
+
+
+# ==================== 原文件管理 API ====================
+
+# 文件大小限制 50MB
+_MAX_UPLOAD_SIZE = 50 * 1024 * 1024
+
+
+def _validate_filename(name: str) -> bool:
+    """校验文件名安全性，拒绝路径遍历"""
+    if not name or ".." in name or "/" in name or "\\" in name:
+        return False
+    if name.startswith("."):
+        return False
+    return True
+
+
+@app.post("/api/rawdata/download-email")
+async def download_email(
+    request: EmailDownloadRequest,
+    user: dict = Depends(get_current_user)
+):
+    """从邮件下载账单文件
+
+    需要认证
+
+    Args:
+        request: 包含 passwords 列表
+
+    Returns:
+        任务 ID（通过 WebSocket 推送进度）
+    """
+    task_id = await task_manager.create_download_task(
+        passwords=request.passwords
+    )
+
+    return {
+        "success": True,
+        "task_id": task_id,
+        "message": "邮件下载任务已启动"
+    }
+
+
+@app.post("/api/rawdata/upload")
+async def upload_rawdata(
+    files: List[UploadFile] = File(...),
+    user: dict = Depends(get_current_user)
+):
+    """上传本地文件到 rawdata/
+
+    需要认证。支持多文件上传。
+
+    Args:
+        files: 上传的文件列表
+
+    Returns:
+        上传结果
+    """
+    from backend import BillManager
+    manager = BillManager(config)
+
+    uploaded = []
+    for file in files:
+        # 文件名安全校验
+        if not _validate_filename(file.filename):
+            raise HTTPException(status_code=400, detail=f"文件名不合法: {file.filename}")
+
+        # 读取文件内容并检查大小
+        content = await file.read()
+        if len(content) > _MAX_UPLOAD_SIZE:
+            raise HTTPException(status_code=400, detail=f"文件 {file.filename} 超过 50MB 限制")
+
+        # 保存到 rawdata/
+        dest_path = os.path.join(manager.rawdata_path, file.filename)
+        with open(dest_path, "wb") as f:
+            f.write(content)
+        uploaded.append(file.filename)
+
+    return {
+        "success": True,
+        "message": "上传完成",
+        "files": uploaded
+    }
+
+
+@app.get("/api/rawdata/files")
+async def list_rawdata_files(user: dict = Depends(get_current_user)):
+    """列出 rawdata/ 中的文件及 bean-identify 识别结果
+
+    需要认证
+
+    Returns:
+        文件列表，包含文件名、大小和识别的导入器
+    """
+    from backend import BillManager
+    manager = BillManager(config)
+
+    rawdata_path = manager.rawdata_path
+    if not os.path.exists(rawdata_path):
+        return {"files": []}
+
+    # 列出文件
+    file_list = []
+    for name in os.listdir(rawdata_path):
+        file_path = os.path.join(rawdata_path, name)
+        if os.path.isfile(file_path):
+            file_list.append({
+                "name": name,
+                "size": os.path.getsize(file_path),
+                "importer": None
+            })
+
+    if not file_list:
+        return {"files": []}
+
+    # 调用 bean-identify 获取识别结果
+    identify_map = manager.bean_identify_parsed()
+    for item in file_list:
+        if item["name"] in identify_map:
+            item["importer"] = identify_map[item["name"]]
+
+    return {"files": file_list}
+
+
+@app.delete("/api/rawdata/files/{name}")
+async def delete_rawdata_file(
+    name: str,
+    user: dict = Depends(get_current_user)
+):
+    """删除 rawdata/ 中的指定文件
+
+    需要认证
+
+    Args:
+        name: 文件名
+
+    Returns:
+        操作结果
+    """
+    # 文件名安全校验
+    if not _validate_filename(name):
+        raise HTTPException(status_code=400, detail="文件名不合法")
+
+    from backend import BillManager
+    manager = BillManager(config)
+
+    file_path = os.path.join(manager.rawdata_path, name)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="文件不存在")
+
+    os.remove(file_path)
+    return {"success": True, "message": "文件已删除"}
+
+
+# ==================== 归档 API ====================
+
+@app.post("/api/archive")
+async def archive_changes(
+    request: ArchiveRequest,
+    user: dict = Depends(get_current_user)
+):
+    """执行归档操作（bean-file + git commit）
+
+    需要认证
+
+    Args:
+        request: 包含提交说明
+
+    Returns:
+        任务 ID（通过 WebSocket 推送进度）
+    """
+    if not request.message.strip():
+        raise HTTPException(status_code=400, detail="提交说明不能为空")
+
+    task_id = await task_manager.create_archive_task(
+        message=request.message.strip()
+    )
+
+    return {
+        "success": True,
+        "task_id": task_id,
+        "message": "归档任务已启动"
     }
 
 
@@ -535,26 +731,34 @@ async def get_ledger_status(user: dict = Depends(get_current_user)):
     需要认证
     
     Returns:
-        {"period": str|null} - 当前账期，null 表示已同步
+        {"period": str|null, "is_clean": bool}
     """
     from backend import BillManager
     manager = BillManager(config)
     
+    is_clean = manager.git_is_clean()
+    
     # 如果工作区 clean，清理可能残留的 .ledger-period 并返回 null
-    if manager.git_is_clean():
+    if is_clean:
         manager.clear_ledger_period()
-        return {"period": None}
+        return {"period": None, "is_clean": True}
     
     # 工作区有变更，返回当前账期
     period = manager.read_ledger_period()
-    return {"period": period}
+    return {"period": period, "is_clean": False}
 
 
 @app.post("/api/ledger-discard")
-async def discard_ledger_changes(user: dict = Depends(get_current_user)):
+async def discard_ledger_changes(
+    request: DiscardRequest = DiscardRequest(),
+    user: dict = Depends(get_current_user)
+):
     """撤销账本所有未提交变更
     
     需要认证
+    
+    Args:
+        request: 包含 include_rawdata 参数
     
     Returns:
         {"success": bool, "message": str}
@@ -563,10 +767,15 @@ async def discard_ledger_changes(user: dict = Depends(get_current_user)):
     manager = BillManager(config)
     
     if manager.git_is_clean():
+        if request.include_rawdata:
+            manager.clear_rawdata()
+            return {"success": True, "message": "无变更需要撤销，原文件已清空"}
         return {"success": True, "message": "无变更需要撤销"}
     
     try:
-        manager.git_discard_changes()
+        manager.git_discard_changes(include_rawdata=request.include_rawdata)
+        if request.include_rawdata:
+            return {"success": True, "message": "变更已撤销，原文件已清空"}
         return {"success": True, "message": "变更已撤销"}
     except Exception as e:
         logger.exception("撤销变更失败")
