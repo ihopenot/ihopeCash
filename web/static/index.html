@@ -30,7 +30,12 @@
         <!-- 账本状态栏 -->
         <div id="ledgerStatusBar" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center justify-between">
             <div id="ledgerStatusText" class="text-sm text-gray-500">加载中...</div>
-            <button id="discardBtn" class="hidden text-sm text-red-500 hover:text-red-700 font-medium transition px-3 py-1 rounded-lg hover:bg-red-50">撤销变更</button>
+            <div class="flex items-center gap-2">
+                <button id="refreshStatusBtn" class="text-gray-400 hover:text-blue-600 transition p-1 rounded-lg hover:bg-blue-50" title="刷新状态">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                </button>
+                <button id="discardBtn" class="hidden text-sm text-red-500 hover:text-red-700 font-medium transition px-3 py-1 rounded-lg hover:bg-red-50">撤销变更</button>
+            </div>
         </div>
 
         <!-- ==================== 1. 获取原文件 ==================== -->
@@ -193,6 +198,7 @@
 
         // DOM 元素
         const ledgerStatusText = document.getElementById('ledgerStatusText');
+        const refreshStatusBtn = document.getElementById('refreshStatusBtn');
         const discardBtn = document.getElementById('discardBtn');
         const importForm = document.getElementById('importForm');
         const yearSelect = document.getElementById('year');
@@ -299,6 +305,14 @@
                 archiveHint.classList.add('hidden');
             }
         }
+
+        // ==================== 刷新状态 ====================
+
+        refreshStatusBtn.addEventListener('click', async () => {
+            refreshStatusBtn.querySelector('svg').classList.add('refresh-spin');
+            await loadLedgerStatus();
+            setTimeout(() => refreshStatusBtn.querySelector('svg').classList.remove('refresh-spin'), 500);
+        });
 
         // ==================== 撤销弹窗 ====================
 
@@ -801,6 +815,7 @@
 
         function showProgressSection() {
             progressSection.classList.remove('hidden');
+            progressSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         function clearLog() {

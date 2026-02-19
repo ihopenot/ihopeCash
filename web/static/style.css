@@ -23,3 +23,13 @@
     background-color: #eff6ff;
     color: #1e40af;
 }
+
+/* 刷新按钮旋转动画 */
+@keyframes refresh-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.refresh-spin {
+    animation: refresh-spin 0.5s ease-in-out;
+}

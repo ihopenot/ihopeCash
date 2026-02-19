@@ -147,8 +147,11 @@ def ensure_default_bean_files():
 
 @app.on_event("startup")
 async def startup_event():
-    """应用启动时确保默认文件存在"""
+    """应用启动时确保默认文件存在，并初始化 git 仓库"""
     ensure_default_bean_files()
+    from backend import BillManager
+    manager = BillManager(config)
+    manager.git_ensure_repo()
 
 
 # 挂载静态文件
