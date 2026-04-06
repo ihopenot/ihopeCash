@@ -65,11 +65,21 @@ class BillManager:
         """检测并初始化 beancount git 仓库
         
         如果 beancount_path/.git 不存在，执行 git init，创建 .gitignore，并完成首次提交。
+        始终将 beancount_path 加入 git safe.directory 以避免容器环境下的 dubious ownership 问题。
         
         Raises:
             RuntimeError: git 未安装或初始化失败
         """
         git_dir = os.path.join(self.beancount_path, ".git")
+        
+        # 将数据目录加入 safe.directory，避免容器环境下 dubious ownership 报错
+        safe_path = self.beancount_path.replace("\\", "/")
+        subprocess.run(
+            ["git", "config", "--global", "--add", "safe.directory", safe_path],
+            capture_output=True,
+            text=True
+        )
+        
         if os.path.exists(git_dir):
             return
         
@@ -122,6 +132,8 @@ class BillManager:
             capture_output=True,
             text=True
         )
+        if result.returncode != 0:
+            return False
         return result.stdout.strip() == ""
     
     def git_commit_if_dirty(self, period: str):
