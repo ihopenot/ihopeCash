@@ -101,16 +101,20 @@ class BillManager:
         self._run_git(["add", "."])
         self._run_git(["commit", "-m", "初始化账本"])
     
+    def git_is_initialized(self) -> bool:
+        """检查 beancount 数据目录是否已初始化 git"""
+        git_dir = os.path.join(self.beancount_path, ".git")
+        return os.path.exists(git_dir)
+
     def git_is_clean(self) -> bool:
         """检查 beancount git 工作区是否干净
         
         Returns:
             True 表示工作区干净（无变更），False 表示有未提交变更。
-            如果 beancount_path/.git 不存在，返回 True。
+            如果 beancount_path/.git 不存在，返回 False。
         """
-        git_dir = os.path.join(self.beancount_path, ".git")
-        if not os.path.exists(git_dir):
-            return True
+        if not self.git_is_initialized():
+            return False
         
         result = subprocess.run(
             ["git", "status", "--porcelain"],

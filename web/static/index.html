@@ -268,7 +268,7 @@
                 if (response.status === 401) return;
                 const data = await response.json();
                 renderLedgerStatus(data);
-                updateArchiveState(data.is_clean);
+                updateArchiveState(data.is_clean, data.git_initialized);
             } catch (error) {
                 console.error('Load ledger status error:', error);
                 ledgerStatusText.textContent = '状态获取失败';
@@ -277,7 +277,11 @@
         }
 
         function renderLedgerStatus(data) {
-            if (data.period) {
+            if (!data.git_initialized) {
+                ledgerStatusText.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-gray-400 mr-2"></span>版本管理未初始化';
+                ledgerStatusText.className = 'text-sm text-gray-500 font-medium';
+                discardBtn.classList.add('hidden');
+            } else if (data.period) {
                 const parts = data.period.split('-');
                 ledgerStatusText.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-blue-500 mr-2"></span>当前账期: ' + parts[0] + '年' + parseInt(parts[1], 10) + '月';
                 ledgerStatusText.className = 'text-sm text-gray-700 font-medium';
@@ -293,8 +297,8 @@
             }
         }
 
-        function updateArchiveState(isClean) {
-            if (isClean) {
+        function updateArchiveState(isClean, gitInitialized) {
+            if (isClean && gitInitialized) {
                 archiveBtn.disabled = true;
                 archiveMessage.disabled = true;
                 archiveHint.textContent = '无需归档';

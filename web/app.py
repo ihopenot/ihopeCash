@@ -734,21 +734,22 @@ async def get_ledger_status(user: dict = Depends(get_current_user)):
     需要认证
     
     Returns:
-        {"period": str|null, "is_clean": bool}
+        {"period": str|null, "is_clean": bool, "git_initialized": bool}
     """
     from backend import BillManager
     manager = BillManager(config)
     
+    git_initialized = manager.git_is_initialized()
     is_clean = manager.git_is_clean()
     
     # 如果工作区 clean，清理可能残留的 .ledger-period 并返回 null
     if is_clean:
         manager.clear_ledger_period()
-        return {"period": None, "is_clean": True}
+        return {"period": None, "is_clean": True, "git_initialized": git_initialized}
     
     # 工作区有变更，返回当前账期
     period = manager.read_ledger_period()
-    return {"period": period, "is_clean": False}
+    return {"period": period, "is_clean": False, "git_initialized": git_initialized}
 
 
 @app.post("/api/ledger-discard")
@@ -768,6 +769,9 @@ async def discard_ledger_changes(
     """
     from backend import BillManager
     manager = BillManager(config)
+    
+    if not manager.git_is_initialized():
+        return {"success": False, "message": "版本管理未初始化，无法撤销变更"}
     
     if manager.git_is_clean():
         if request.include_rawdata:
