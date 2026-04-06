@@ -73,7 +73,7 @@ class BillManager:
         git_dir = os.path.join(self.beancount_path, ".git")
         
         # 将数据目录加入 safe.directory，避免容器环境下 dubious ownership 报错
-        safe_path = self.beancount_path.replace("\\", "/")
+        safe_path = os.path.abspath(self.beancount_path).replace("\\", "/")
         subprocess.run(
             ["git", "config", "--global", "--add", "safe.directory", safe_path],
             capture_output=True,
